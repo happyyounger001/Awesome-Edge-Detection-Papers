@@ -1,0 +1,8 @@
+mediapipe
+opencv-python
+numpy
+matplotlib
+scipy
+jinja2
+pyyaml
+pytest
