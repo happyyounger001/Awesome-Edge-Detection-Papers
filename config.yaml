@@ -1,0 +1,16 @@
+v_start_thr: 0.015
+v_end_thr: 0.005
+min_lunge_duration: 0.2
+min_gap_between_lunges: 0.3
+settle_frames: 4
+
+knee_angle_thr: 120.0
+hip_flexion_thr: 60.0
+trunk_lean_thr: 20.0
+stride_ratio_thr: 0.55
+
+ema_alpha: 0.35
+visibility_thr: 0.5
+
+beep_energy_thr: 2.5
+beep_min_separation_s: 0.25

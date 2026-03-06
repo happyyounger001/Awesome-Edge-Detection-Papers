@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Fencing Lunge Analyzer Report</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 24px; }
+    table { border-collapse: collapse; width: 100%; margin-top: 12px; }
+    th, td { border: 1px solid #ccc; padding: 6px; font-size: 14px; }
+    th { background: #f2f2f2; }
+    .ok { color: green; }
+    .bad { color: #b00020; }
+    img { max-width: 720px; display: block; margin-bottom: 16px; }
+  </style>
+</head>
+<body>
+  <h1>Fencing Lunge Analyzer - {{ video_name }}</h1>
+  <p><strong>Pipeline:</strong> MediaPipe Pose keypoints + rule-based lunge detection/metrics.</p>
+  <p><strong>Notes:</strong> 2D side-view estimation, no sword-tip tracking, sensitive to occlusion and fps.</p>
+
+  <h2>Summary</h2>
+  <ul>
+    <li>Lunge count: {{ summary.lunge_count }}</li>
+    <li>Mean duration: {{ "%.3f"|format(summary.duration_mean or 0) }} s</li>
+    <li>Mean minimum knee angle: {{ "%.2f"|format(summary.knee_angle_min_mean or 0) }} deg</li>
+    <li>Mean maximum trunk lean: {{ "%.2f"|format(summary.trunk_lean_max_mean or 0) }} deg</li>
+  </ul>
+
+  <h2>Metric Definitions</h2>
+  <ul>
+    <li><strong>Front knee angle</strong> (hip-knee-ankle): lower can mean deeper lunge.</li>
+    <li><strong>Hip flexion</strong> (shoulder-hip-knee): approximates thigh raise/hip bend.</li>
+    <li><strong>Trunk lean</strong> (shoulder-hip vs vertical): higher means more forward lean.</li>
+    <li><strong>Stride ratio</strong>: ankle horizontal distance normalized by torso length proxy.</li>
+  </ul>
+
+  <h2>Charts</h2>
+  <img src="{{ fig_paths.duration }}" alt="Duration chart" />
+  <img src="{{ fig_paths.posture }}" alt="Posture chart" />
+  <img src="{{ fig_paths.reaction }}" alt="Reaction time chart" />
+  <img src="{{ fig_paths.order }}" alt="Foot hand order chart" />
+
+  <h2>Lunge Details</h2>
+  <p>Beep analysis enabled: {{ beep_enabled }}</p>
+  <table>
+    <thead>
+      <tr>
+        <th>ID</th><th>Start(s)</th><th>End(s)</th><th>Duration(s)</th>
+        <th>Knee min</th><th>Hip max</th><th>Trunk max</th><th>Stride max</th>
+        <th>Reaction(s)</th><th>Order</th><th>Flags</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in rows %}
+      <tr>
+        <td>{{ r.lunge_id }}</td>
+        <td>{{ "%.3f"|format(r.start_time) }}</td>
+        <td>{{ "%.3f"|format(r.end_time) }}</td>
+        <td>{{ "%.3f"|format(r.duration) }}</td>
+        <td>{{ "%.2f"|format(r.knee_angle_min) }}</td>
+        <td>{{ "%.2f"|format(r.hip_flexion_max) }}</td>
+        <td>{{ "%.2f"|format(r.trunk_lean_max) }}</td>
+        <td>{{ "%.3f"|format(r.stride_max) }}</td>
+        <td>{{ "%.3f"|format(r.reaction_time) if r.reaction_time is not none else "N/A" }}</td>
+        <td>{{ r.foot_hand_order }}</td>
+        <td>
+          knee:<span class="{{ 'ok' if r.knee_ok else 'bad' }}">{{ r.knee_ok }}</span>,
+          hip:<span class="{{ 'ok' if r.hip_ok else 'bad' }}">{{ r.hip_ok }}</span>,
+          trunk:<span class="{{ 'ok' if r.trunk_ok else 'bad' }}">{{ r.trunk_ok }}</span>,
+          stride:<span class="{{ 'ok' if r.stride_ok else 'bad' }}">{{ r.stride_ok }}</span>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</body>
+</html>
