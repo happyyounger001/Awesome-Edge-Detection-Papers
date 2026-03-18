@@ -1,0 +1,70 @@
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from pathlib import Path
+
+
+@dataclass
+class TimingResult:
+    go_time: float | None
+    hand_start_time: float | None
+    foot_start_time: float | None
+    lunge_finish_time: float | None
+
+    @property
+    def go_to_hand(self) -> float | None:
+        if self.go_time is None or self.hand_start_time is None:
+            return None
+        return self.hand_start_time - self.go_time
+
+    @property
+    def go_to_finish(self) -> float | None:
+        if self.go_time is None or self.lunge_finish_time is None:
+            return None
+        return self.lunge_finish_time - self.go_time
+
+    @property
+    def hand_to_finish(self) -> float | None:
+        if self.hand_start_time is None or self.lunge_finish_time is None:
+            return None
+        return self.lunge_finish_time - self.hand_start_time
+
+
+@dataclass
+class LungeQuality:
+    hand_foot_order: str
+    hand_foot_status: str
+    stability: str
+    stability_status: str
+    thigh_raise: str
+    thigh_raise_status: str
+    calf_kick: str
+    calf_kick_status: str
+    overall_status: str
+    explanations: list[str] = field(default_factory=list)
+
+
+@dataclass
+class FrameAssessment:
+    frame_index: int
+    timestamp: float
+    current_text: str
+    current_icon: str
+    hand_foot_order: str
+    stability: str
+    thigh_raise: str
+    calf_kick: str
+
+
+@dataclass
+class AnalysisResult:
+    video_path: Path
+    output_dir: Path
+    timing: TimingResult
+    quality: LungeQuality
+    frame_assessments: list[FrameAssessment]
+    report_html: Path
+    overlay_video: Path
+    keyframes: dict[str, Path]
+    detected_go: bool
+    charts: dict[str, Path]
