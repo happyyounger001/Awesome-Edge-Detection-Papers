@@ -10,8 +10,15 @@ from config import AppConfig
 from pose.models import PoseFrame, PoseSequence
 
 KEYPOINTS = {
+    "nose": 0,
+    "left_eye": 2,
+    "right_eye": 5,
+    "left_ear": 7,
+    "right_ear": 8,
     "left_shoulder": 11,
     "right_shoulder": 12,
+    "left_elbow": 13,
+    "right_elbow": 14,
     "left_wrist": 15,
     "right_wrist": 16,
     "left_hip": 23,
@@ -23,7 +30,14 @@ KEYPOINTS = {
 }
 
 SKELETON = [
+    ("left_eye", "right_eye"),
+    ("left_ear", "left_eye"),
+    ("right_ear", "right_eye"),
     ("left_shoulder", "right_shoulder"),
+    ("left_shoulder", "left_elbow"),
+    ("left_elbow", "left_wrist"),
+    ("right_shoulder", "right_elbow"),
+    ("right_elbow", "right_wrist"),
     ("left_shoulder", "left_hip"),
     ("right_shoulder", "right_hip"),
     ("left_hip", "right_hip"),
@@ -31,8 +45,6 @@ SKELETON = [
     ("right_hip", "right_knee"),
     ("left_knee", "left_ankle"),
     ("right_knee", "right_ankle"),
-    ("left_shoulder", "left_wrist"),
-    ("right_shoulder", "right_wrist"),
 ]
 
 
@@ -49,7 +61,7 @@ class PoseEstimator:
     def close(self) -> None:
         self._pose.close()
 
-    def extract(self, video_path: str | Path) -> PoseSequence:
+    def extract(self, video_path: str | Path, progress_callback=None) -> PoseSequence:
         cap = cv2.VideoCapture(str(video_path))
         if not cap.isOpened():
             raise RuntimeError(f"无法打开视频: {video_path}")
@@ -57,6 +69,7 @@ class PoseEstimator:
         fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
         width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT)) or 1
 
         raw_xy = {name: [] for name in KEYPOINTS}
         raw_vis = {name: [] for name in KEYPOINTS}
@@ -89,6 +102,8 @@ class PoseEstimator:
 
             frames.append(PoseFrame(frame_index, frame_index / fps, points, visibilities))
             frame_index += 1
+            if progress_callback is not None:
+                progress_callback(min(100, int(frame_index * 100 / total_frames)))
 
         cap.release()
         arrays = self._smooth_arrays(raw_xy, raw_vis)

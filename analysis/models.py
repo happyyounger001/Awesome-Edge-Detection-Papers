@@ -38,6 +38,8 @@ class LungeQuality:
     stability_status: str
     thigh_raise: str
     thigh_raise_status: str
+    head_tilt: str
+    head_tilt_status: str
     calf_kick: str
     calf_kick_status: str
     overall_status: str
@@ -48,16 +50,21 @@ class LungeQuality:
 class FrameAssessment:
     frame_index: int
     timestamp: float
-    lunge_index: int
+    current_lunge_index: int
+    completed_lunge_count: int
+    lunge_state: str
     current_text: str
     current_icon: str
     score_text: str
     hand_foot_order: str
     stability: str
+    stability_details: str
     thigh_raise: str
+    head_tilt: str
     calf_kick: str
     show_thigh_warning: bool
     show_order_warning: bool
+    show_head_tilt_warning: bool
 
 
 @dataclass

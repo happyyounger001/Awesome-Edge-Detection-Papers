@@ -111,7 +111,7 @@ class ReportGenerator:
     <p><strong>是否检测到 go：</strong>{detected_go}</p>
     <p><strong>完整弓步数：</strong>{evaluation.completed_lunges}</p>
     <p><strong>总体评价：</strong><span class="{'tag-good' if quality.overall_status == '👍' else 'tag-warn'}">{quality.overall_status}</span></p>
-    <p><strong>当前参数：</strong>稳定性 {self.config.stability_seconds_threshold:.2f} 秒；抬大腿角度阈值 {self.config.thigh_raise_angle_threshold:.1f} 度；膝低于髋 = {self.config.require_knee_below_hip_for_thigh_raise}</p>
+    <p><strong>当前参数：</strong>稳定性 {self.config.stability_seconds_threshold:.2f} 秒；上肢晃动阈值 {self.config.upper_body_motion_threshold:.3f}；抬大腿角度阈值 {self.config.thigh_raise_angle_threshold:.1f} 度；头部偏斜阈值 {self.config.head_tilt_angle_threshold:.1f} 度；膝低于髋 = {self.config.require_knee_below_hip_for_thigh_raise}</p>
   </div>
 
   <h2>时间分析表</h2>
@@ -128,6 +128,7 @@ class ReportGenerator:
     <tr><td>手脚顺序</td><td>{quality.hand_foot_order} {quality.hand_foot_status}</td></tr>
     <tr><td>弓步稳定</td><td>{quality.stability} {quality.stability_status}</td></tr>
     <tr><td>抬大腿</td><td>{quality.thigh_raise} {quality.thigh_raise_status}</td></tr>
+    <tr><td>头部姿态</td><td>{quality.head_tilt} {quality.head_tilt_status}</td></tr>
     <tr><td>踢小腿</td><td>{quality.calf_kick} {quality.calf_kick_status}</td></tr>
     <tr><td>总体评价</td><td>{quality.overall_status}</td></tr>
   </table>

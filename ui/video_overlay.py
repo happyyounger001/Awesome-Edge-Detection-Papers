@@ -74,16 +74,18 @@ def draw_pose_overlay(frame, pose_sequence: PoseSequence, frame_index: int, asse
         x = int(pose_sequence.arrays[name][frame_index, 0] * pose_sequence.width)
         y = int(pose_sequence.arrays[name][frame_index, 1] * pose_sequence.height)
         points[name] = (x, y)
-        cv2.circle(canvas, (x, y), 4, (0, 255, 0), -1)
+        cv2.circle(canvas, (x, y), 3 if "eye" in name or "ear" in name or name == "nose" else 4, (0, 255, 0), -1)
 
     for start, end in SKELETON:
         cv2.line(canvas, points[start], points[end], (255, 215, 0), 2)
 
-    warning_lines = [f"第 {assessment.lunge_index} 个弓步"]
+    warning_lines = [f"第 {assessment.current_lunge_index} 个弓步"]
     if assessment.show_thigh_warning:
         warning_lines.append("抬大腿预警")
     if assessment.show_order_warning:
         warning_lines.append("先脚后手预警")
+    if assessment.show_head_tilt_warning:
+        warning_lines.append("歪头提醒")
     return _draw_chinese_labels(canvas, warning_lines)
 
 
