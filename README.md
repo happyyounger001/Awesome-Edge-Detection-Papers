@@ -66,6 +66,46 @@ python main.py
 4. 点击“开始分析”。
 5. 点击“查看分析报告”，打开中文独立报告窗口。
 
+
+## 能生成 EXE 吗？
+
+可以。项目已经补充了 **PyInstaller 打包脚本** 和 `.spec` 文件，可在 Windows 上生成桌面版 EXE。
+
+### 方式 1：使用打包脚本（推荐）
+
+```powershell
+python build_exe.py
+```
+
+生成目录：
+
+```text
+dist/
+  FencingLungeAITrainer/
+    FencingLungeAITrainer.exe
+```
+
+如果你想生成单文件版本：
+
+```powershell
+python build_exe.py --onefile
+```
+
+### 方式 2：直接使用 spec 文件
+
+```powershell
+pyinstaller FencingLungeAITrainer.spec
+```
+
+### 打包说明
+
+- 打包时会自动把 `config.yaml` 一起带入 EXE 输出目录。
+- 脚本已经包含 `mediapipe`、`matplotlib`、`pandas` 的收集参数，减少 Windows 下缺模块问题。
+- 对于 MediaPipe + OpenCV + PySide6 组合，**优先推荐 one-folder 版本**，稳定性通常高于 one-file。
+- 首次打包前请先确认：
+  - `pip install -r requirements.txt`
+  - `python main.py` 可以正常启动
+
 ## 输出目录
 
 分析完成后会在 `outputs/<视频名>/` 生成：
