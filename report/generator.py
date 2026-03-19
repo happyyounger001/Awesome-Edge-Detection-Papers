@@ -109,7 +109,9 @@ class ReportGenerator:
     <p><strong>视频名称：</strong>{video_path.name}</p>
     <p><strong>分析时间：</strong>{created_at}</p>
     <p><strong>是否检测到 go：</strong>{detected_go}</p>
+    <p><strong>完整弓步数：</strong>{evaluation.completed_lunges}</p>
     <p><strong>总体评价：</strong><span class="{'tag-good' if quality.overall_status == '👍' else 'tag-warn'}">{quality.overall_status}</span></p>
+    <p><strong>当前参数：</strong>稳定性 {self.config.stability_seconds_threshold:.2f} 秒；抬大腿角度阈值 {self.config.thigh_raise_angle_threshold:.1f} 度；膝低于髋 = {self.config.require_knee_below_hip_for_thigh_raise}</p>
   </div>
 
   <h2>时间分析表</h2>

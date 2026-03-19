@@ -6,7 +6,10 @@ import cv2
 from PySide6.QtCore import QTimer, Qt
 from PySide6.QtGui import QImage, QPixmap
 from PySide6.QtWidgets import (
+    QCheckBox,
+    QDoubleSpinBox,
     QFileDialog,
+    QFormLayout,
     QGridLayout,
     QGroupBox,
     QHBoxLayout,
@@ -23,7 +26,7 @@ from PySide6.QtWidgets import (
 
 from analysis.engine import AnalysisEngine
 from analysis.models import AnalysisResult
-from config import AppConfig, load_config
+from config import load_config
 from pose.estimator import PoseEstimator
 from rules.evaluator import evaluate_sequence
 from ui.report_window import ReportWindow
@@ -34,6 +37,7 @@ class FencingMainWindow(QMainWindow):
     def __init__(self, config_path: str | None = None):
         super().__init__()
         self.config = load_config(config_path)
+        self.default_config = load_config(config_path)
         self.engine = AnalysisEngine(self.config)
         self.preview_estimator = PoseEstimator(self.config)
         self.video_path: Path | None = None
@@ -47,8 +51,9 @@ class FencingMainWindow(QMainWindow):
         self.report_window: ReportWindow | None = None
 
         self.setWindowTitle("Fencing Lunge AI Trainer")
-        self.resize(1400, 900)
+        self.resize(1520, 920)
         self._build_ui()
+        self._load_config_to_widgets()
 
     def closeEvent(self, event):
         if self.capture is not None:
@@ -93,7 +98,6 @@ class FencingMainWindow(QMainWindow):
         realtime_layout = QVBoxLayout(realtime_group)
         self.realtime_text = QTextEdit()
         self.realtime_text.setReadOnly(True)
-        self.realtime_text.setText("手脚顺序：--\n弓步稳定性：--\n是否抬大腿：--\n是否踢小腿：--\n当前状态：--")
         realtime_layout.addWidget(self.realtime_text)
 
         control_group = QGroupBox("4️⃣ 控制与报告区")
@@ -109,11 +113,59 @@ class FencingMainWindow(QMainWindow):
             control_layout.addWidget(widget)
         control_layout.addStretch(1)
 
+        params_group = QGroupBox("5️⃣ 当前参数设置")
+        params_layout = QVBoxLayout(params_group)
+        form = QFormLayout()
+        self.stability_spin = QDoubleSpinBox()
+        self.stability_spin.setRange(0.1, 5.0)
+        self.stability_spin.setDecimals(2)
+        self.stability_spin.setSuffix(" 秒")
+        form.addRow("弓步稳定性：", self.stability_spin)
+
+        self.thigh_angle_spin = QDoubleSpinBox()
+        self.thigh_angle_spin.setRange(1.0, 90.0)
+        self.thigh_angle_spin.setDecimals(1)
+        self.thigh_angle_spin.setSuffix(" 度")
+        form.addRow("抬大腿角度阈值：", self.thigh_angle_spin)
+
+        self.knee_below_hip_checkbox = QCheckBox("膝关节点需低于髋关节点")
+        form.addRow("抬大腿条件 1：", self.knee_below_hip_checkbox)
+
+        params_layout.addLayout(form)
+        params_layout.addWidget(QLabel("抬大腿条件 2：膝-髋连线与地面夹角 >= 上述阈值"))
+        button_row = QHBoxLayout()
+        apply_button = QPushButton("应用参数")
+        apply_button.clicked.connect(self.apply_parameters)
+        reset_button = QPushButton("恢复默认参数")
+        reset_button.clicked.connect(self.reset_parameters)
+        button_row.addWidget(apply_button)
+        button_row.addWidget(reset_button)
+        params_layout.addLayout(button_row)
+        params_layout.addStretch(1)
+
         layout.addWidget(input_group, 0, 0, 1, 2)
-        layout.addWidget(playback_group, 1, 0, 2, 2)
+        layout.addWidget(playback_group, 1, 0, 3, 2)
         layout.addWidget(realtime_group, 1, 2)
         layout.addWidget(control_group, 2, 2)
+        layout.addWidget(params_group, 3, 2)
         self.setCentralWidget(root)
+        self._update_realtime_placeholder()
+
+    def _load_config_to_widgets(self) -> None:
+        self.stability_spin.setValue(self.config.stability_seconds_threshold)
+        self.thigh_angle_spin.setValue(self.config.thigh_raise_angle_threshold)
+        self.knee_below_hip_checkbox.setChecked(self.config.require_knee_below_hip_for_thigh_raise)
+
+    def _update_realtime_placeholder(self) -> None:
+        self.realtime_text.setText(
+            "第 1 个弓步\n"
+            "当前状态：等待分析\n"
+            "是否得分：--\n"
+            "细项判定：\n"
+            "抬大腿：--\n"
+            "稳定性：--\n"
+            "手脚顺序：--"
+        )
 
     def import_video(self) -> None:
         file_path, _ = QFileDialog.getOpenFileName(self, "选择训练视频", "", "Video Files (*.mp4 *.mov *.avi)")
@@ -169,7 +221,6 @@ class FencingMainWindow(QMainWindow):
         self.progress_slider.setValue(frame_index)
         self.progress_slider.blockSignals(False)
 
-        assessment = None
         if self.analysis_result is not None and self.analysis_result.frame_assessments:
             assessment = self.analysis_result.frame_assessments[min(frame_index, len(self.analysis_result.frame_assessments) - 1)]
         else:
@@ -190,11 +241,13 @@ class FencingMainWindow(QMainWindow):
 
     def _update_realtime_panel(self, assessment) -> None:
         self.realtime_text.setText(
-            f"手脚顺序：{assessment.hand_foot_order}\n"
-            f"弓步稳定性：{assessment.stability}\n"
-            f"是否抬大腿：{assessment.thigh_raise}\n"
-            f"是否踢小腿：{assessment.calf_kick}\n"
-            f"当前状态：{assessment.current_text} {assessment.current_icon}"
+            f"第 {assessment.lunge_index} 个弓步\n"
+            f"当前状态：{assessment.current_text}\n"
+            f"是否得分：{assessment.score_text}\n"
+            f"细项判定：\n"
+            f"抬大腿：{assessment.thigh_raise}\n"
+            f"稳定性：{assessment.stability}\n"
+            f"手脚顺序：{assessment.hand_foot_order}"
         )
 
     def mark_go(self) -> None:
@@ -204,6 +257,26 @@ class FencingMainWindow(QMainWindow):
         fps = self.capture.get(cv2.CAP_PROP_FPS) or 30.0
         self.manual_go_time = self.current_frame / fps
         self.status_label.setText(f"状态：已手动标记 go = {self.manual_go_time:.3f} 秒")
+        self._show_frame(self.current_frame)
+
+    def apply_parameters(self) -> None:
+        self.config.stability_seconds_threshold = self.stability_spin.value()
+        self.config.thigh_raise_angle_threshold = self.thigh_angle_spin.value()
+        self.config.require_knee_below_hip_for_thigh_raise = self.knee_below_hip_checkbox.isChecked()
+        self.status_label.setText("状态：参数已应用到当前判定逻辑")
+        if self.preview_sequence is not None:
+            self.analysis_result = None
+            self._show_frame(self.current_frame)
+
+    def reset_parameters(self) -> None:
+        self.config.stability_seconds_threshold = self.default_config.stability_seconds_threshold
+        self.config.thigh_raise_angle_threshold = self.default_config.thigh_raise_angle_threshold
+        self.config.require_knee_below_hip_for_thigh_raise = self.default_config.require_knee_below_hip_for_thigh_raise
+        self._load_config_to_widgets()
+        self.status_label.setText("状态：已恢复默认参数")
+        if self.preview_sequence is not None:
+            self.analysis_result = None
+            self._show_frame(self.current_frame)
 
     def run_analysis(self) -> None:
         if self.video_path is None:
@@ -212,7 +285,9 @@ class FencingMainWindow(QMainWindow):
         output_dir = Path("outputs") / self.video_path.stem
         self.status_label.setText("状态：分析中，请稍候...")
         self.analysis_result = self.engine.analyze_video(self.video_path, output_dir, self.manual_go_time)
-        self.status_label.setText(f"状态：分析完成，报告已生成：{self.analysis_result.report_html}")
+        self.status_label.setText(
+            f"状态：分析完成，共识别 {self.analysis_result.frame_assessments[-1].lunge_index} 个弓步，报告已生成：{self.analysis_result.report_html}"
+        )
         self._show_frame(self.current_frame)
 
     def open_report(self) -> None:

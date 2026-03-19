@@ -48,12 +48,16 @@ class LungeQuality:
 class FrameAssessment:
     frame_index: int
     timestamp: float
+    lunge_index: int
     current_text: str
     current_icon: str
+    score_text: str
     hand_foot_order: str
     stability: str
     thigh_raise: str
     calf_kick: str
+    show_thigh_warning: bool
+    show_order_warning: bool
 
 
 @dataclass

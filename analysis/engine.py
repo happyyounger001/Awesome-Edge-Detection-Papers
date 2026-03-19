@@ -32,7 +32,6 @@ class AnalysisEngine:
             output_dir=output_dir,
             pose_sequence=pose_sequence,
             evaluation=evaluation,
-            config=self.config,
         )
         report_html, charts = self.report_generator.generate(
             video_path=video_path,

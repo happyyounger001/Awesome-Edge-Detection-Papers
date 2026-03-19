@@ -4,6 +4,7 @@ mediapipe
 numpy
 pandas
 matplotlib
+pillow
 pyyaml
 pytest
 pyinstaller

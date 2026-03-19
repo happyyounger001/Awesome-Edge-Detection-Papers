@@ -12,9 +12,10 @@ class AppConfig:
     hand_speed_threshold: float = 0.018
     foot_speed_threshold: float = 0.02
     lunge_finish_speed_threshold: float = 0.006
-    stability_seconds_threshold: float = 1.0
-    thigh_raise_angle_threshold: float = 68.0
+    stability_seconds_threshold: float = 0.30
+    thigh_raise_angle_threshold: float = 20.0
     calf_kick_speed_threshold: float = 0.025
+    require_knee_below_hip_for_thigh_raise: bool = True
     smoothing_alpha: float = 0.35
     visibility_threshold: float = 0.5
     preview_width: int = 960

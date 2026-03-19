@@ -3,11 +3,21 @@ from __future__ import annotations
 from pathlib import Path
 
 import cv2
+import numpy as np
+from PIL import Image, ImageDraw, ImageFont
 
-from config import AppConfig
 from pose.estimator import KEYPOINTS, SKELETON
 from pose.models import PoseSequence
 from rules.evaluator import SequenceEvaluation
+
+FONT_CANDIDATES = [
+    "C:/Windows/Fonts/msyh.ttc",
+    "C:/Windows/Fonts/simhei.ttf",
+    "C:/Windows/Fonts/simsun.ttc",
+    "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+    "/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc",
+    "/usr/share/fonts/truetype/arphic/ukai.ttc",
+]
 
 
 def render_overlay_video(
@@ -15,7 +25,6 @@ def render_overlay_video(
     output_dir: Path,
     pose_sequence: PoseSequence,
     evaluation: SequenceEvaluation,
-    config: AppConfig,
 ) -> tuple[Path, dict[str, Path]]:
     output_dir.mkdir(parents=True, exist_ok=True)
     frames_dir = output_dir / "frames"
@@ -58,7 +67,7 @@ def render_overlay_video(
     return overlay_path, saved_keyframes
 
 
-def draw_pose_overlay(frame, pose_sequence: PoseSequence, frame_index: int, assessment) -> any:
+def draw_pose_overlay(frame, pose_sequence: PoseSequence, frame_index: int, assessment):
     canvas = frame.copy()
     points: dict[str, tuple[int, int]] = {}
     for name in KEYPOINTS:
@@ -70,10 +79,33 @@ def draw_pose_overlay(frame, pose_sequence: PoseSequence, frame_index: int, asse
     for start, end in SKELETON:
         cv2.line(canvas, points[start], points[end], (255, 215, 0), 2)
 
-    cv2.putText(canvas, f"Time: {assessment.timestamp:.2f}s", (20, 32), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
-    cv2.putText(canvas, f"AI: {assessment.current_text} {assessment.current_icon}", (20, 64), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 220, 255), 2)
-    cv2.putText(canvas, f"手脚顺序: {assessment.hand_foot_order}", (20, 96), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
-    cv2.putText(canvas, f"弓步稳定: {assessment.stability}", (20, 124), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
-    cv2.putText(canvas, f"抬大腿: {assessment.thigh_raise}", (20, 152), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
-    cv2.putText(canvas, f"踢小腿: {assessment.calf_kick}", (20, 180), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
-    return canvas
+    warning_lines = [f"第 {assessment.lunge_index} 个弓步"]
+    if assessment.show_thigh_warning:
+        warning_lines.append("抬大腿预警")
+    if assessment.show_order_warning:
+        warning_lines.append("先脚后手预警")
+    return _draw_chinese_labels(canvas, warning_lines)
+
+
+def _draw_chinese_labels(frame: np.ndarray, lines: list[str]) -> np.ndarray:
+    image = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+    draw = ImageDraw.Draw(image)
+    font = _load_font(28)
+    x = 20
+    y = 20
+
+    for line in lines:
+        bbox = draw.textbbox((x, y), line, font=font)
+        draw.rounded_rectangle((bbox[0] - 12, bbox[1] - 8, bbox[2] + 12, bbox[3] + 8), radius=8, fill=(0, 0, 0, 160))
+        draw.text((x, y), line, font=font, fill=(255, 255, 255))
+        y += (bbox[3] - bbox[1]) + 20
+
+    return cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
+
+
+def _load_font(size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
+    for candidate in FONT_CANDIDATES:
+        font_path = Path(candidate)
+        if font_path.exists():
+            return ImageFont.truetype(str(font_path), size=size)
+    return ImageFont.load_default()

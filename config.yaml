@@ -1,9 +1,10 @@
 hand_speed_threshold: 0.018
 foot_speed_threshold: 0.02
 lunge_finish_speed_threshold: 0.006
-stability_seconds_threshold: 1.0
-thigh_raise_angle_threshold: 68.0
+stability_seconds_threshold: 0.30
+thigh_raise_angle_threshold: 20.0
 calf_kick_speed_threshold: 0.025
+require_knee_below_hip_for_thigh_raise: true
 smoothing_alpha: 0.35
 visibility_threshold: 0.5
 preview_width: 960
