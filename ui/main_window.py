@@ -145,7 +145,7 @@ class FencingMainWindow(QMainWindow):
         go_button.clicked.connect(self.mark_go)
         self.report_button = QPushButton("查看分析报告")
         self.report_button.clicked.connect(self.open_report)
-        self.learning_button = QPushButton("打开 Learning System")
+        self.learning_button = QPushButton("打开学习系统")
         self.learning_button.clicked.connect(self.open_learning_system)
         self.status_label = QLabel("状态：等待导入视频")
         for widget in [self.analyze_button, go_button, self.report_button, self.learning_button, self.status_label]:
@@ -449,6 +449,7 @@ class FencingMainWindow(QMainWindow):
             self.learning_window = LearningSystemWindow(import_callback=self.import_quality_standard)
         self.learning_window.show()
         self.learning_window.raise_()
+        self.learning_window.activateWindow()
 
     def import_quality_standard(self, standard: dict, standard_path: Path) -> None:
         self.quality_standard = standard

@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import json
+import math
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, TYPE_CHECKING
 
-from config import AppConfig
+if TYPE_CHECKING:
+    from config import AppConfig
 
 DEFAULT_SCORE_WEIGHTS = {
     "posture": 0.30,
@@ -29,7 +31,7 @@ def save_quality_standard(path: str | Path, data: dict[str, Any]) -> Path:
     return output_path
 
 
-def apply_standard_to_config(config: AppConfig, standard: dict[str, Any]) -> AppConfig:
+def apply_standard_to_config(config: "AppConfig", standard: dict[str, Any]) -> "AppConfig":
     thresholds = standard.get("thresholds", {})
     config.stability_seconds_threshold = float(thresholds.get("stability_window_sec", config.stability_seconds_threshold))
     config.head_tilt_angle_threshold = float(thresholds.get("head_tilt_deg_thr", config.head_tilt_angle_threshold))
@@ -41,17 +43,38 @@ def apply_standard_to_config(config: AppConfig, standard: dict[str, Any]) -> App
 
 
 def summarize_feature(values: list[float]) -> dict[str, float]:
-    import numpy as np
+    arr = sorted(float(value) for value in values)
+    count = len(arr)
+    if count == 0:
+        raise ValueError("values must not be empty")
 
-    arr = np.array(values, dtype=float)
+    def percentile(p: float) -> float:
+        if count == 1:
+            return arr[0]
+        rank = (count - 1) * (p / 100.0)
+        lower = math.floor(rank)
+        upper = math.ceil(rank)
+        if lower == upper:
+            return arr[lower]
+        fraction = rank - lower
+        return arr[lower] + (arr[upper] - arr[lower]) * fraction
+
+    mean = sum(arr) / count
+    variance = sum((value - mean) ** 2 for value in arr) / count
+    midpoint = count // 2
+    if count % 2 == 1:
+        median = arr[midpoint]
+    else:
+        median = (arr[midpoint - 1] + arr[midpoint]) / 2.0
+
     return {
-        "mean": float(np.mean(arr)),
-        "median": float(np.median(arr)),
-        "std": float(np.std(arr)),
-        "p10": float(np.percentile(arr, 10)),
-        "p25": float(np.percentile(arr, 25)),
-        "p75": float(np.percentile(arr, 75)),
-        "p90": float(np.percentile(arr, 90)),
+        "mean": float(mean),
+        "median": float(median),
+        "std": float(math.sqrt(variance)),
+        "p10": float(percentile(10)),
+        "p25": float(percentile(25)),
+        "p75": float(percentile(75)),
+        "p90": float(percentile(90)),
     }
 
 

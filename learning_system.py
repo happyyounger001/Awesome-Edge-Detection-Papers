@@ -5,9 +5,6 @@ import json
 from pathlib import Path
 from typing import Any
 
-from config import load_config
-from feature_extractor import extract_video_features
-from pose.estimator import PoseEstimator
 from quality_standard import build_quality_standard, save_quality_standard
 
 
@@ -23,12 +20,42 @@ def load_samples_from_input_dir(input_dir: Path) -> list[dict[str, str]]:
     return items
 
 
+def build_quality_standard_from_feature_rows(
+    feature_rows: list[dict[str, Any]],
+    output_path: Path,
+    features_output_dir: Path,
+) -> dict[str, Any]:
+    if not feature_rows:
+        raise RuntimeError("未找到可学习的视频样本")
+
+    features_output_dir.mkdir(parents=True, exist_ok=True)
+    by_category: dict[str, list[dict[str, Any]]] = {}
+    for row in feature_rows:
+        by_category.setdefault(row["category"], []).append(row)
+    for category, rows in by_category.items():
+        (features_output_dir / f"{category}_features.json").write_text(
+            json.dumps(rows, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+
+    merged_path = features_output_dir / "aggregated_features.json"
+    merged_path.write_text(json.dumps(feature_rows, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    standard = build_quality_standard(feature_rows, sorted(by_category.keys()))
+    standard.setdefault("meta", {})["sample_count"] = len(feature_rows)
+    save_quality_standard(output_path, standard)
+    return standard
+
+
 def build_quality_standard_from_sources(
     input_dir: Path | None,
     manifest_path: Path | None,
     output_path: Path,
     features_output_dir: Path,
 ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    from config import load_config
+    from feature_extractor import extract_video_features
+    from pose.estimator import PoseEstimator
+
     config = load_config("config.yaml")
     estimator = PoseEstimator(config)
     try:
@@ -40,18 +67,7 @@ def build_quality_standard_from_sources(
         for sample in samples:
             sequence = estimator.extract(sample["video_path"])
             feature_rows.append(extract_video_features(sequence, config, sample["video_path"], sample["category"]))
-
-        features_output_dir.mkdir(parents=True, exist_ok=True)
-        by_category: dict[str, list[dict[str, Any]]] = {}
-        for row in feature_rows:
-            by_category.setdefault(row["category"], []).append(row)
-        for category, rows in by_category.items():
-            (features_output_dir / f"{category}_features.json").write_text(
-                json.dumps(rows, ensure_ascii=False, indent=2), encoding="utf-8"
-            )
-
-        standard = build_quality_standard(feature_rows, sorted(by_category.keys()))
-        save_quality_standard(output_path, standard)
+        standard = build_quality_standard_from_feature_rows(feature_rows, output_path, features_output_dir)
         return standard, feature_rows
     finally:
         estimator.close()
