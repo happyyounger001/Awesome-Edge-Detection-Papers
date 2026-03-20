@@ -1,0 +1,58 @@
+{
+  "meta": {
+    "name": "U6 Foil Quality Standard",
+    "version": "v1",
+    "generated_at": "2026-03-20T00:00:00+00:00",
+    "source_categories": ["training_standard"],
+    "note": "score_weights 当前为默认权重，后续可由数据学习替换"
+  },
+  "lunge_definition": {
+    "rule": "lunge_out + return = one complete lunge"
+  },
+  "thresholds": {
+    "stability_window_sec": 0.3,
+    "head_tilt_deg_thr": 15.0,
+    "hip_knee_ground_angle_thr": 20.0
+  },
+  "features": {
+    "front_knee_angle_min": {"mean": 52.0, "median": 52.0, "std": 0.0, "p10": 52.0, "p25": 52.0, "p75": 52.0, "p90": 52.0},
+    "rear_knee_angle_min": {"mean": 72.0, "median": 72.0, "std": 0.0, "p10": 72.0, "p25": 72.0, "p75": 72.0, "p90": 72.0},
+    "trunk_lean_max_deg": {"mean": 18.0, "median": 18.0, "std": 0.0, "p10": 18.0, "p25": 18.0, "p75": 18.0, "p90": 18.0},
+    "head_tilt_max_deg": {"mean": 10.0, "median": 10.0, "std": 0.0, "p10": 10.0, "p25": 10.0, "p75": 10.0, "p90": 10.0},
+    "stride_max_norm": {"mean": 1.08, "median": 1.08, "std": 0.0, "p10": 1.08, "p25": 1.08, "p75": 1.08, "p90": 1.08},
+    "wrist_forward_dist_max_norm": {"mean": 0.82, "median": 0.82, "std": 0.0, "p10": 0.82, "p25": 0.82, "p75": 0.82, "p90": 0.82},
+    "elbow_extension_angle_min": {"mean": 145.0, "median": 145.0, "std": 0.0, "p10": 145.0, "p25": 145.0, "p75": 145.0, "p90": 145.0},
+    "hip_knee_line_ground_angle_max": {"mean": 24.0, "median": 24.0, "std": 0.0, "p10": 24.0, "p25": 24.0, "p75": 24.0, "p90": 24.0},
+    "hand_foot_start_delta": {"mean": 0.02, "median": 0.02, "std": 0.0, "p10": 0.02, "p25": 0.02, "p75": 0.02, "p90": 0.02},
+    "lunge_out_duration": {"mean": 0.3, "median": 0.3, "std": 0.0, "p10": 0.3, "p25": 0.3, "p75": 0.3, "p90": 0.3},
+    "lunge_return_duration": {"mean": 0.35, "median": 0.35, "std": 0.0, "p10": 0.35, "p25": 0.35, "p75": 0.35, "p90": 0.35},
+    "time_to_max_stride": {"mean": 0.22, "median": 0.22, "std": 0.0, "p10": 0.22, "p25": 0.22, "p75": 0.22, "p90": 0.22},
+    "wrist_stability_std": {"mean": 0.01, "median": 0.01, "std": 0.0, "p10": 0.01, "p25": 0.01, "p75": 0.01, "p90": 0.01},
+    "elbow_stability_std": {"mean": 0.015, "median": 0.015, "std": 0.0, "p10": 0.015, "p25": 0.015, "p75": 0.015, "p90": 0.015},
+    "shoulder_stability_std": {"mean": 0.012, "median": 0.012, "std": 0.0, "p10": 0.012, "p25": 0.012, "p75": 0.012, "p90": 0.012},
+    "head_stability_std": {"mean": 0.01, "median": 0.01, "std": 0.0, "p10": 0.01, "p25": 0.01, "p75": 0.01, "p90": 0.01},
+    "trunk_stability_std": {"mean": 0.02, "median": 0.02, "std": 0.0, "p10": 0.02, "p25": 0.02, "p75": 0.02, "p90": 0.02},
+    "stable_hold_duration": {"mean": 0.3, "median": 0.3, "std": 0.0, "p10": 0.3, "p25": 0.3, "p75": 0.3, "p90": 0.3},
+    "coordination_score_raw": {"mean": 0.95, "median": 0.95, "std": 0.0, "p10": 0.95, "p25": 0.95, "p75": 0.95, "p90": 0.95},
+    "head_trunk_alignment_score": {"mean": 0.9, "median": 0.9, "std": 0.0, "p10": 0.9, "p25": 0.9, "p75": 0.9, "p90": 0.9},
+    "hand_first_ratio": {"mean": 1.0, "median": 1.0, "std": 0.0, "p10": 1.0, "p25": 1.0, "p75": 1.0, "p90": 1.0}
+  },
+  "stage_rules": {
+    "prepare": {"head_trunk_alignment_score_p75": 0.9},
+    "lunge_out": {"hand_foot_start_delta_p90": 0.02, "time_to_max_stride_p90": 0.22},
+    "hold": {
+      "wrist_stability_std_p90": 0.01,
+      "elbow_stability_std_p90": 0.015,
+      "shoulder_stability_std_p90": 0.012,
+      "head_tilt_deg_p90": 10.0,
+      "stable_hold_duration_p75": 0.3
+    },
+    "return": {"lunge_return_duration_p90": 0.35}
+  },
+  "score_weights": {
+    "posture": 0.3,
+    "timing": 0.3,
+    "stability": 0.25,
+    "coordination": 0.15
+  }
+}

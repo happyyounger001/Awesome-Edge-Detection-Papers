@@ -1,18 +1,22 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 from analysis.models import AnalysisResult
 from config import AppConfig
+from feature_extractor import extract_video_features
 from pose.estimator import PoseEstimator
+from quality_scorer import score_features
 from report.generator import ReportGenerator
 from rules.evaluator import evaluate_sequence
 from ui.video_overlay import render_overlay_video
 
 
 class AnalysisEngine:
-    def __init__(self, config: AppConfig):
+    def __init__(self, config: AppConfig, quality_standard: dict[str, Any] | None = None):
         self.config = config
+        self.quality_standard = quality_standard
         self.pose_estimator = PoseEstimator(config)
         self.report_generator = ReportGenerator(config)
 
@@ -39,6 +43,15 @@ class AnalysisEngine:
         if progress_callback is not None:
             progress_callback(45)
         evaluation = evaluate_sequence(pose_sequence, self.config, manual_go_time)
+        feature_summary = extract_video_features(pose_sequence, self.config, str(video_path), category="training_video")
+        if self.quality_standard is not None:
+            scores, explanations = score_features(feature_summary, self.quality_standard)
+            evaluation.quality.posture_score = scores.get("posture_score", 0.0)
+            evaluation.quality.timing_score = scores.get("timing_score", 0.0)
+            evaluation.quality.stability_score = scores.get("stability_score", 0.0)
+            evaluation.quality.coordination_score = scores.get("coordination_score", 0.0)
+            evaluation.quality.overall_score = scores.get("overall_score", 0.0)
+            evaluation.quality.deviations = explanations
 
         if progress_callback is not None:
             progress_callback(70)

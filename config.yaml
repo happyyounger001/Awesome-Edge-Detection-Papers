@@ -11,3 +11,4 @@ smoothing_alpha: 0.35
 visibility_threshold: 0.5
 preview_width: 960
 preview_height: 540
+standard_path: standards/quality_standard_u6_foil_v1.json

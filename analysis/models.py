@@ -43,7 +43,13 @@ class LungeQuality:
     calf_kick: str
     calf_kick_status: str
     overall_status: str
+    posture_score: float = 0.0
+    timing_score: float = 0.0
+    stability_score: float = 0.0
+    coordination_score: float = 0.0
+    overall_score: float = 0.0
     explanations: list[str] = field(default_factory=list)
+    deviations: list[str] = field(default_factory=list)
 
 
 @dataclass

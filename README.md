@@ -128,6 +128,51 @@ frames/
   预警触发瞬间.png
 ```
 
+
+## 两层系统架构
+
+项目现在拆分为两层：
+
+1. **Learning System（底层学习系统）**
+   - 输入：`data/learning_samples/training_standard/` 和 `data/learning_samples/competition_effective/` 中的高质量样本视频。
+   - 输出：
+     - `outputs/learning_features/*.json`
+     - `standards/quality_standard_u6_foil_v1.json`
+2. **Training Assistant System（训练辅助系统）**
+   - 输入：普通训练视频 + 质量标准文件。
+   - 输出：实时分析、字幕预警、报告、质量评分、偏差解释。
+
+## 学习系统
+
+学习系统会复用当前 MediaPipe Pose 提取能力，先将视频转换为归一化特征，再统计高质量样本分布，生成质量标准 JSON。当前版本优先实现：
+
+- 特征提取
+- 区间统计（mean / median / std / p10 / p25 / p75 / p90）
+- 阶段规则输出
+- 默认评分权重输出
+
+### 学习系统运行示例
+
+```bash
+python learning_system.py   --input data/learning_samples   --output standards/quality_standard_u6_foil_v1.json
+```
+
+### 训练辅助系统运行示例
+
+```bash
+python training_assistant.py   --video input.mp4   --standard standards/quality_standard_u6_foil_v1.json
+```
+
+### 默认质量标准文件
+
+仓库内提供默认标准文件：
+
+```text
+standards/quality_standard_u6_foil_v1.json
+```
+
+如果未找到该文件，训练辅助系统会给出明确的“质量标准文件不存在”报错。
+
 ## 参数调节
 
 界面右侧新增“当前参数设置”面板，可直接查看并调整：

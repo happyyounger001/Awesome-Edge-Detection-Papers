@@ -22,6 +22,7 @@ class AppConfig:
     visibility_threshold: float = 0.5
     preview_width: int = 960
     preview_height: int = 540
+    standard_path: str = "standards/quality_standard_u6_foil_v1.json"
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

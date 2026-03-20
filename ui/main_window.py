@@ -30,6 +30,7 @@ from analysis.engine import AnalysisEngine
 from analysis.models import AnalysisResult
 from config import load_config
 from pose.estimator import PoseEstimator
+from quality_standard import apply_standard_to_config, load_quality_standard
 from rules.evaluator import evaluate_sequence
 from ui.progress_dialog import ProgressDialog
 from ui.report_window import ReportWindow
@@ -43,7 +44,12 @@ class FencingMainWindow(QMainWindow):
         super().__init__()
         self.config = load_config(config_path)
         self.default_config = load_config(config_path)
-        self.engine = AnalysisEngine(self.config)
+        self.quality_standard = None
+        standard_path = Path(self.config.standard_path) if hasattr(self.config, "standard_path") else Path("standards/quality_standard_u6_foil_v1.json")
+        if standard_path.exists():
+            self.quality_standard = load_quality_standard(standard_path)
+            apply_standard_to_config(self.config, self.quality_standard)
+        self.engine = AnalysisEngine(self.config, quality_standard=self.quality_standard)
         self.preview_estimator = PoseEstimator(self.config)
         self.video_path: Path | None = None
         self.capture: cv2.VideoCapture | None = None
