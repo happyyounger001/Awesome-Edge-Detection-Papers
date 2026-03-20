@@ -69,7 +69,8 @@ python main.py
 3. 在需要时点击“手动标记 go”。
 4. 点击“开始分析”。
 5. 使用倍速按钮和进度条进行人工复核。
-6. 点击“查看分析报告”，打开中文独立报告窗口。
+6. 如需更新标准，点击“打开 Learning System”，在窗口中生成/加载质量标准并一键导入。
+7. 点击“查看分析报告”，打开中文独立报告窗口。
 
 
 ## 能生成 EXE 吗？
@@ -141,6 +142,7 @@ frames/
 2. **Training Assistant System（训练辅助系统）**
    - 输入：普通训练视频 + 质量标准文件。
    - 输出：实时分析、字幕预警、报告、质量评分、偏差解释。
+   - GUI 中可通过“打开 Learning System”窗口查看学习到的衡量指标，并一键导入到当前训练辅助系统。
 
 ## 学习系统
 
@@ -162,6 +164,15 @@ python learning_system.py   --input data/learning_samples   --output standards/q
 ```bash
 python training_assistant.py   --video input.mp4   --standard standards/quality_standard_u6_foil_v1.json
 ```
+
+### Learning System 界面
+
+Learning System 窗口支持：
+
+- 选择学习样本目录
+- 生成质量标准文件
+- 表格查看学习后的质量标准衡量指标（mean / median / p25 / p75 / p90）
+- 一键导入到当前 Training Assistant System
 
 ### 默认质量标准文件
 

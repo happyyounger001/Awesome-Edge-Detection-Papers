@@ -32,6 +32,7 @@ from config import load_config
 from pose.estimator import PoseEstimator
 from quality_standard import apply_standard_to_config, load_quality_standard
 from rules.evaluator import evaluate_sequence
+from ui.learning_window import LearningSystemWindow
 from ui.progress_dialog import ProgressDialog
 from ui.report_window import ReportWindow
 from ui.video_overlay import draw_pose_overlay
@@ -60,6 +61,7 @@ class FencingMainWindow(QMainWindow):
         self.analysis_result: AnalysisResult | None = None
         self.preview_sequence = None
         self.report_window: ReportWindow | None = None
+        self.learning_window: LearningSystemWindow | None = None
         self.progress_dialog: ProgressDialog | None = None
 
         self.is_video_loading = False
@@ -143,8 +145,10 @@ class FencingMainWindow(QMainWindow):
         go_button.clicked.connect(self.mark_go)
         self.report_button = QPushButton("查看分析报告")
         self.report_button.clicked.connect(self.open_report)
+        self.learning_button = QPushButton("打开 Learning System")
+        self.learning_button.clicked.connect(self.open_learning_system)
         self.status_label = QLabel("状态：等待导入视频")
-        for widget in [self.analyze_button, go_button, self.report_button, self.status_label]:
+        for widget in [self.analyze_button, go_button, self.report_button, self.learning_button, self.status_label]:
             control_layout.addWidget(widget)
         control_layout.addStretch(1)
 
@@ -438,6 +442,25 @@ class FencingMainWindow(QMainWindow):
         )
         logger.info("Analysis finished for %s", self.video_path)
         self._show_frame(self.current_frame)
+
+
+    def open_learning_system(self) -> None:
+        if self.learning_window is None:
+            self.learning_window = LearningSystemWindow(import_callback=self.import_quality_standard)
+        self.learning_window.show()
+        self.learning_window.raise_()
+
+    def import_quality_standard(self, standard: dict, standard_path: Path) -> None:
+        self.quality_standard = standard
+        apply_standard_to_config(self.config, standard)
+        self.engine.close()
+        self.engine = AnalysisEngine(self.config, quality_standard=self.quality_standard)
+        self._load_config_to_widgets()
+        self.status_label.setText(f"状态：已导入质量标准 {standard_path.name}")
+        self._update_algorithm_panel(None)
+        if self.preview_sequence is not None:
+            self.analysis_result = None
+            self._show_frame(self.current_frame)
 
     def open_report(self) -> None:
         if self.analysis_result is None:
