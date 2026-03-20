@@ -10,6 +10,8 @@ def test_evaluate_sequence_generates_timing_quality_and_realtime_fields():
     assert result.quality.hand_foot_order in {"先手后脚", "其他"}
     assert result.quality.head_tilt in {"正常", "歪头提醒"}
     assert result.quality.overall_status in {"👍", "🚨"}
+    assert result.quality.status_text in {"很棒，得分！", "加油，还能更好！"}
     assert len(result.frame_assessments) == 80
     assert result.frame_assessments[0].current_lunge_index >= 1
     assert result.frame_assessments[-1].current_text in {"很棒，得分！", "加油，还能更好！"}
+    assert result.frame_assessments[-1].coaching_advice

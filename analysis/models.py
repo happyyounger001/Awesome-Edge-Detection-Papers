@@ -48,6 +48,9 @@ class LungeQuality:
     stability_score: float = 0.0
     coordination_score: float = 0.0
     overall_score: float = 0.0
+    status_text: str = "加油，还能更好！"
+    top_issue: str = ""
+    top_advice: str = ""
     explanations: list[str] = field(default_factory=list)
     deviations: list[str] = field(default_factory=list)
 
@@ -62,6 +65,8 @@ class FrameAssessment:
     current_text: str
     current_icon: str
     score_text: str
+    top_issue: str
+    coaching_advice: str
     hand_foot_order: str
     stability: str
     stability_details: str

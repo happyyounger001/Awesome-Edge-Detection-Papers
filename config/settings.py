@@ -1,10 +1,9 @@
 from __future__ import annotations
 
+import importlib.util
 from dataclasses import dataclass, asdict
 from pathlib import Path
 from typing import Any
-
-import yaml
 
 
 @dataclass
@@ -35,5 +34,10 @@ def load_config(path: str | Path | None = None) -> AppConfig:
     if path is None:
         return DEFAULT_CONFIG
     config_path = Path(path)
+    yaml_spec = importlib.util.find_spec("yaml")
+    if yaml_spec is None:
+        return DEFAULT_CONFIG
+    import yaml
+
     data = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
     return AppConfig(**{**DEFAULT_CONFIG.to_dict(), **data})

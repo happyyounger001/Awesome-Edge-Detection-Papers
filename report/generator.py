@@ -105,12 +105,15 @@ class ReportGenerator:
 </head>
 <body>
   <h1>击剑弓步AI分析报告</h1>
-  <div class="summary">
+    <div class="summary">
     <p><strong>视频名称：</strong>{video_path.name}</p>
     <p><strong>分析时间：</strong>{created_at}</p>
     <p><strong>是否检测到 go：</strong>{detected_go}</p>
     <p><strong>完整弓步数：</strong>{evaluation.completed_lunges}</p>
     <p><strong>总体评价：</strong><span class="{'tag-good' if quality.overall_status == '👍' else 'tag-warn'}">{quality.overall_status}</span></p>
+    <p><strong>实时状态：</strong>{quality.status_text}</p>
+    <p><strong>本次最需要改进：</strong>{quality.top_issue or '动作整体达标'}</p>
+    <p><strong>训练建议：</strong>{quality.top_advice or '继续保持当前节奏和稳定性'}</p>
     <p><strong>质量评分：</strong>总分 {quality.overall_score:.2f} / 姿态 {quality.posture_score:.2f} / 时序 {quality.timing_score:.2f} / 稳定 {quality.stability_score:.2f} / 协调 {quality.coordination_score:.2f}</p>
     <p><strong>当前参数：</strong>稳定性 {self.config.stability_seconds_threshold:.2f} 秒；上肢晃动阈值 {self.config.upper_body_motion_threshold:.3f}；抬大腿角度阈值 {self.config.thigh_raise_angle_threshold:.1f} 度；头部偏斜阈值 {self.config.head_tilt_angle_threshold:.1f} 度；膝低于髋 = {self.config.require_knee_below_hip_for_thigh_raise}</p>
   </div>
@@ -144,6 +147,15 @@ class ReportGenerator:
   <ul>
     {explanation_blocks}
   </ul>
+
+  <h2>训练建议</h2>
+  <table>
+    <tr><th>字段</th><th>内容</th></tr>
+    <tr><td>第 X 个弓步</td><td>第 {evaluation.frame_assessments[-1].current_lunge_index if evaluation.frame_assessments else 1} 个弓步</td></tr>
+    <tr><td>当前状态</td><td>{quality.status_text}</td></tr>
+    <tr><td>最关键问题</td><td>{quality.top_issue or '动作整体达标'}</td></tr>
+    <tr><td>建议</td><td>{quality.top_advice or '继续保持当前节奏和稳定性'}</td></tr>
+  </table>
 
   <h2>偏差说明</h2>
   <ul>

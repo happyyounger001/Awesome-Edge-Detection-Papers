@@ -21,3 +21,5 @@ def test_generate_report_outputs_charts_and_html(tmp_path: Path):
     assert charts["timing"].exists()
     assert charts["stability"].exists()
     assert (tmp_path / "metrics.csv").exists()
+    html = html_path.read_text(encoding="utf-8")
+    assert "训练建议" in html

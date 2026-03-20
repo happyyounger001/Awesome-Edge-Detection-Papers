@@ -78,15 +78,20 @@ def _line_angle_degrees(p1: np.ndarray, p2: np.ndarray) -> np.ndarray:
     return np.degrees(np.arctan2(delta[:, 1], delta[:, 0]))
 
 
-def _compute_lunge_state_machine(stride_distance: np.ndarray) -> tuple[np.ndarray, np.ndarray, list[str], int]:
+def _compute_lunge_state_machine(stride_distance: np.ndarray, fps: float) -> tuple[np.ndarray, np.ndarray, list[str], int]:
     if len(stride_distance) == 0:
         return np.zeros(0, dtype=int), np.zeros(0, dtype=int), [], 0
 
     velocity = np.gradient(stride_distance)
     baseline = float(np.median(stride_distance[: max(3, min(len(stride_distance), 10))]))
     peak = float(np.max(stride_distance))
-    start_thr = baseline + max(0.03, (peak - baseline) * 0.25)
-    return_thr = baseline + max(0.015, (peak - baseline) * 0.08)
+    amplitude = max(peak - baseline, 1e-6)
+    prepare_thr = baseline + max(0.01, amplitude * 0.10)
+    start_thr = baseline + max(0.03, amplitude * 0.25)
+    hold_thr = baseline + max(0.04, amplitude * 0.70)
+    return_thr = baseline + max(0.015, amplitude * 0.08)
+    min_gap_frames = max(1, int(round(fps * 0.30)))
+    hold_frames_required = max(1, int(round(fps * 0.10)))
 
     current_numbers = np.zeros(len(stride_distance), dtype=int)
     completed_numbers = np.zeros(len(stride_distance), dtype=int)
@@ -94,24 +99,55 @@ def _compute_lunge_state_machine(stride_distance: np.ndarray) -> tuple[np.ndarra
     state = "IDLE"
     completed = 0
     current = 1 if peak > start_thr else 0
+    hold_frames = 0
+    lunge_start_frame: int | None = None
+    last_completion_frame = -min_gap_frames
 
     for i, (stride, speed) in enumerate(zip(stride_distance, velocity)):
         previous_state = state
         if state == "IDLE":
             current = max(completed + 1, 1) if peak > start_thr else max(completed, 1)
+            hold_frames = 0
+            if i - last_completion_frame < min_gap_frames:
+                state = "IDLE"
+            elif stride >= prepare_thr and speed >= 0:
+                state = "PREPARE"
+                lunge_start_frame = i
+        elif state == "PREPARE":
+            current = completed + 1
             if stride >= start_thr and speed >= 0:
                 state = "LUNGE_OUT"
                 current = completed + 1
+            elif stride < prepare_thr:
+                state = "IDLE"
+                lunge_start_frame = None
         elif state == "LUNGE_OUT":
             current = completed + 1
-            if speed < 0:
-                state = "LUNGE_RETURN"
-        elif state == "LUNGE_RETURN":
+            if stride >= hold_thr:
+                hold_frames += 1
+                if hold_frames >= hold_frames_required:
+                    state = "HOLD"
+            else:
+                hold_frames = 0
+            if speed < 0 and stride < hold_thr:
+                state = "RETURN"
+        elif state == "HOLD":
             current = completed + 1
-            if stride <= return_thr:
+            if speed < 0:
+                state = "RETURN"
+            elif stride < start_thr:
+                state = "PREPARE"
+        elif state == "RETURN":
+            current = completed + 1
+            if stride <= return_thr and (lunge_start_frame is None or i - lunge_start_frame >= min_gap_frames):
                 completed += 1
+                last_completion_frame = i
                 state = "IDLE"
+                lunge_start_frame = None
+                hold_frames = 0
                 logger.debug("Lunge completed at frame %s -> completed=%s", i, completed)
+            elif stride >= hold_thr and speed >= 0:
+                state = "LUNGE_OUT"
 
         if previous_state != state:
             logger.debug("Lunge state transition at frame %s: %s -> %s", i, previous_state, state)
@@ -157,6 +193,9 @@ def evaluate_sequence(sequence: PoseSequence, config: AppConfig, manual_go_time:
     lead_ankle = sequence.arrays[f"{side}_ankle"]
     back_ankle = sequence.arrays[f"{back}_ankle"]
     back_hip = sequence.arrays[f"{back}_hip"]
+    shoulder = sequence.arrays[f"{side}_shoulder"]
+    elbow = sequence.arrays[f"{side}_elbow"]
+    wrist = sequence.arrays[f"{side}_wrist"]
 
     hand_speed = np.abs(np.gradient(lead_wrist_x, dt))
     foot_speed = np.abs(np.gradient(lead_ankle_x, dt))
@@ -167,7 +206,8 @@ def evaluate_sequence(sequence: PoseSequence, config: AppConfig, manual_go_time:
     thigh_raise_angles = np.array([_hip_knee_line_angle(lead_hip[i], lead_knee[i]) for i in range(sequence.frame_count)])
     knee_below_hip = lead_knee[:, 1] > lead_hip[:, 1]
     stride_distance = np.abs(lead_ankle[:, 0] - back_ankle[:, 0])
-    current_lunge_numbers, completed_numbers, lunge_states, completed_lunges = _compute_lunge_state_machine(stride_distance)
+    current_lunge_numbers, completed_numbers, lunge_states, completed_lunges = _compute_lunge_state_machine(stride_distance, fps)
+    torso_length = np.maximum(np.linalg.norm(shoulder - lead_hip, axis=1), 1e-6)
 
     eye_angle = np.abs(_line_angle_degrees(sequence.arrays["left_eye"], sequence.arrays["right_eye"]))
     head_tilt_flags = eye_angle > config.head_tilt_angle_threshold
@@ -238,6 +278,7 @@ def evaluate_sequence(sequence: PoseSequence, config: AppConfig, manual_go_time:
         calf_kick=calf_kick,
         calf_kick_status=calf_kick_status,
         overall_status=overall_status,
+        status_text="很棒，得分！" if overall_good else "加油，还能更好！",
         explanations=[],
     )
     quality.explanations = _describe(quality)
@@ -256,10 +297,13 @@ def evaluate_sequence(sequence: PoseSequence, config: AppConfig, manual_go_time:
             "foot_speed": foot_speed,
             "body_speed": body_speed,
             "calf_speed": calf_speed,
-            "knee_angle": knee_angles,
+            "front_knee_angle": knee_angles,
             "thigh_raise_angle": thigh_raise_angles,
+            "trunk_lean_angle": np.abs(_line_angle_degrees(shoulder, lead_hip) - 90.0),
             "knee_below_hip": knee_below_hip.astype(int),
             "head_tilt_angle": eye_angle,
+            "stride_length_norm": stride_distance / torso_length,
+            "wrist_forward_dist_norm": np.abs(wrist[:, 0] - shoulder[:, 0]) / torso_length,
             "stride_distance": stride_distance,
             "current_lunge_index": current_lunge_numbers,
             "completed_lunge_count": completed_numbers,
@@ -283,6 +327,7 @@ def evaluate_sequence(sequence: PoseSequence, config: AppConfig, manual_go_time:
         stability_details,
         thigh_raise_flags,
         head_tilt_flags,
+        overall_good,
         hand_frame,
         foot_frame,
         finish_frame,
@@ -312,6 +357,7 @@ def _build_frame_assessments(
     stability_details: str,
     thigh_raise_flags: Iterable[bool],
     head_tilt_flags: Iterable[bool],
+    overall_good: bool,
     hand_frame: int | None,
     foot_frame: int | None,
     finish_frame: int | None,
@@ -336,6 +382,21 @@ def _build_frame_assessments(
         score_good = (not bool(thigh_flag)) and stability_ok and frame_order_ok and (not bool(head_flag))
         current_text = "很棒，得分！" if score_good else "加油，还能更好！"
         current_icon = "👍" if score_good else "🚨"
+        if score_good or overall_good:
+            top_issue = "动作整体达标"
+            coaching_advice = "继续保持当前节奏和稳定性"
+        elif bool(thigh_flag):
+            top_issue = "抬大腿"
+            coaching_advice = "注意不要抬大腿，保持髋膝角度稳定"
+        elif not frame_order_ok:
+            top_issue = "先脚后手"
+            coaching_advice = "手启动慢，建议先手再脚"
+        elif bool(head_flag):
+            top_issue = "头部倾斜"
+            coaching_advice = "头部倾斜，注意保持正直"
+        else:
+            top_issue = "到位不稳"
+            coaching_advice = "到位不稳，建议停留0.3秒"
 
         assessments.append(
             FrameAssessment(
@@ -347,6 +408,8 @@ def _build_frame_assessments(
                 current_text=current_text,
                 current_icon=current_icon,
                 score_text="得分" if score_good else "未得分",
+                top_issue=top_issue,
+                coaching_advice=coaching_advice,
                 hand_foot_order=sequence_order,
                 stability=sequence_stability,
                 stability_details=stability_details,

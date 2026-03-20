@@ -25,6 +25,9 @@ def main() -> int:
         print(f"Report: {result.report_html}")
         print(f"Overlay: {result.overlay_video}")
         print(f"Overall score: {result.quality.overall_score}")
+        print(f"Status: {result.quality.status_text}")
+        print(f"Top issue: {result.quality.top_issue}")
+        print(f"Advice: {result.quality.top_advice}")
         for item in result.quality.deviations:
             print(f"- {item}")
     finally:
