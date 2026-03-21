@@ -1,122 +1,97 @@
-# Awesome-Edge-Detection-Papers
+# 儿童刷牙监督程序（Kid Tooth Brushing Supervisor）
 
-[![Awesome](https://cdn.rawgit.com/sindresorhus/awesome/d7305f38d29fed78fa85652e3a63e154dd8e8829/media/badge.svg)](https://github.com/sindresorhus/awesome)
+一个适合 3~10 岁儿童使用的本地刷牙监督 MVP。程序使用 Python 3 和 Tkinter 构建，提供儿童友好的图形界面、2 分钟刷牙倒计时、四区域刷牙提醒，以及本地 JSON 刷牙记录保存。
 
-A collection of edge detection papers and corresponding source code/demo program (*a.k.a.* contour detection or boundary detection).
+## 运行环境
 
-> Feel free to create a PR or an issue. (Pull Request is preferred)
+- Python 3.10+（建议）
+- Tkinter（通常随标准 Python 安装自带）
+- 无需联网
+- 无需数据库
+- 无需第三方依赖
 
-![examples](https://github.com/MarkMoHR/Awesome-Edge-Detection-Papers/blob/master/edge-detection.png)
+## 启动方法
 
+在项目根目录执行：
 
-**Outline**
+```bash
+python main.py
+```
 
-- [Edge detection related dataset](#0-edge-detection-related-dataset)
-- [Deep-learning based approaches](#1-deep-learning-based-approaches)
-  - [General edge detection](#11-general-edge-detection)
-  - [Object contour detection](#12-object-contour-detection)
-  - [Semantic edge detection (Category-Aware)](#13-semantic-edge-detection-category-aware)
-  - [Occlusion boundary detection](#14-occlusion-boundary-detection)
-  - [Edge detection from multi-frames](#15-edge-detection-from-multi-frames)
-- [Traditional approaches](#2-traditional-approaches)
-- [[Misc] Useful Links](#3-useful-links)
+## 功能说明
 
+### 1. 刷牙计时
+- 默认总时长为 2 分钟。
+- 中央显示大号倒计时 `02:00`。
+- 支持“开始 / 暂停 / 继续 / 重置”。
 
-## 0. Edge detection related dataset
+### 2. 四区域刷牙提醒
+- 整个刷牙过程分成 4 个 30 秒区域：左上牙、右上牙、左下牙、右下牙。
+- 当前区域会在界面中明显显示。
+- 每 30 秒自动切换一次提示。
+- 最后完成时会显示结束提示。
 
-| Short name | Source Paper | Source | Introduction |
-| --- | --- | --- | --- |
-| [BSDS500](https://www2.eecs.berkeley.edu/Research/Projects/CS/vision/grouping/resources.html) | [Contour Detection and Hierarchical Image Segmentation](https://www2.eecs.berkeley.edu/Research/Projects/CS/vision/grouping/papers/amfm_pami2010.pdf) | TPAMI 2011 | Classical edge detaction dataset. |
-| [NYUDv2](https://github.com/s-gupta/rgbd#notes) | [Perceptual Organization and Recognition of Indoor Scenes from RGB-D Images](https://www.cv-foundation.org/openaccess/content_cvpr_2013/papers/Gupta_Perceptual_Organization_and_2013_CVPR_paper.pdf) | CVPR 2013 | Edges come from the boundary of annotated segmentation mask. |
-| [Multi-cue](https://serre-lab.clps.brown.edu/resource/multicue/) | [A systematic comparison between visual cues for boundary detection](https://pubmed.ncbi.nlm.nih.gov/26748113/) | Vision research 2016 | With boundary annotations. |
-| [Wireframe](https://github.com/cherubicxn/hawp#data-preparation) | [Holistically-Attracted Wireframe Parsing](https://arxiv.org/pdf/2003.01663) | CVPR 2020 | Edges come from the annotated wireframe. |
+### 3. 儿童友好界面
+- 大字体、大按钮、明亮柔和配色。
+- 显示标题、倒计时、当前刷牙区域、当前状态、进度条、今日完成次数和星星鼓励区。
+- 使用简单鼓励文案帮助孩子坚持完成刷牙。
 
----
+### 4. 每日记录
+- 刷牙完成后，会把记录保存到本地 JSON 文件。
+- 记录以日期为键，保存当天完成次数。
+- 程序启动时会显示“今天已经刷牙 X 次”。
 
-## 1. Deep-learning based approaches
+### 5. 完成鼓励
+- 刷牙结束后，会随机弹出一条鼓励语，例如：
+  - “你今天刷得真认真！”
+  - “牙齿亮晶晶！”
+  - “坚持刷牙真棒！”
+  - “太棒啦，又完成一次！”
 
-### 1.1 General edge detection
+## 数据存储说明
 
-| Short name | Paper | Source | Code/Project Link  |
-| --- | --- | --- | --- |
-| pidinet | [Pixel Difference Networks for Efficient Edge Detection](https://arxiv.org/abs/2108.07009) | ICCV 2021 | [[Code]](https://github.com/zhuoinoulu/pidinet) |
-| DSCD | [Deep Structural Contour Detection](https://dl.acm.org/doi/abs/10.1145/3394171.3413750) | ACM MM 2020 |  |
-| DexiNed | [Dense Extreme Inception Network: Towards a Robust CNN Model for Edge Detection](https://arxiv.org/pdf/1909.01955.pdf) | WACV 2020 | [[Code]](https://github.com/xavysp/DexiNed)  |
-| BDCN | [Bi-Directional Cascade Network for Perceptual Edge Detection](https://arxiv.org/pdf/1902.10903.pdf) | CVPR 2019 | [[code]](https://github.com/pkuCactus/BDCN) |
-| RCN | [Object Contour and Edge Detection with RefineContourNet](https://link.springer.com/chapter/10.1007%2F978-3-030-29888-3_20) | CAIP 2019 | [[code]](https://github.com/AndreKelm/RefineContourNet) |
-| LPCB | [Learning to Predict Crisp Boundaries](http://openaccess.thecvf.com/content_ECCV_2018/papers/Ruoxi_Deng_Learning_to_Predict_ECCV_2018_paper.pdf) | ECCV 2018 |  |
-| AMH-Net | [Learning Deep Structured Multi-Scale Features using Attention-Gated CRFs for Contour Prediction](https://papers.nips.cc/paper/6985-learning-deep-structured-multi-scale-features-using-attention-gated-crfs-for-contour-prediction.pdf) | NIPS 2017 | [[code]](https://github.com/danxuhk/AttentionGatedMulti-ScaleFeatureLearning) |
-| RCF | [Richer Convolutional Features for Edge Detection](http://openaccess.thecvf.com/content_cvpr_2017/papers/Liu_Richer_Convolutional_Features_CVPR_2017_paper.pdf) | CVPR 2017 | [[code-caffe]](https://github.com/yun-liu/rcf) [[code-pytorch]](https://github.com/meteorshowers/RCF-pytorch) [[project]](https://mmcheng.net/zh/rcfEdge/) |
-| CED | [Deep Crisp Boundaries](http://openaccess.thecvf.com/content_cvpr_2017/papers/Wang_Deep_Crisp_Boundaries_CVPR_2017_paper.pdf) | CVPR 2017 | [[code]](https://github.com/Wangyupei/CED) |
-| COB | [Convolutional Oriented Boundaries](https://arxiv.org/pdf/1608.02755.pdf) | ECCV 2016 | [[code]](https://github.com/kmaninis/COB) [[project]](http://www.vision.ee.ethz.ch/~cvlsegmentation/cob/index.html) |
-| RDS | [Learning Relaxed Deep Supervision for Better Edge Detection](http://openaccess.thecvf.com/content_cvpr_2016/papers/Liu_Learning_Relaxed_Deep_CVPR_2016_paper.pdf) | CVPR 2016 |  |
-| HFL | [High-for-Low and Low-for-High: Efficient Boundary Detection from Deep Object Features and its Applications to High-Level Vision](http://openaccess.thecvf.com/content_iccv_2015/papers/Bertasius_High-for-Low_and_Low-for-High_ICCV_2015_paper.pdf) | ICCV 2015 |  |
-| HED | [Holistically-Nested Edge Detection](http://openaccess.thecvf.com/content_iccv_2015/papers/Xie_Holistically-Nested_Edge_Detection_ICCV_2015_paper.pdf) | ICCV 2015 | [[code]](https://github.com/s9xie/hed) |
-| DeepEdge | [DeepEdge: A Multi-Scale Bifurcated Deep Network for Top-Down Contour Detection](http://openaccess.thecvf.com/content_cvpr_2015/papers/Bertasius_DeepEdge_A_Multi-Scale_2015_CVPR_paper.pdf) | CVPR 2015 |  |
-| DeepContour | [DeepContour: A Deep Convolutional Feature Learned by Positive-sharing Loss for Contour Detection](http://openaccess.thecvf.com/content_cvpr_2015/papers/Shen_DeepContour_A_Deep_2015_CVPR_paper.pdf) | CVPR 2015 | [[code]](https://github.com/shenwei1231/DeepContour) |
+- 数据目录：`data/`
+- 数据文件：`data/brush_log.json`
+- 如果 JSON 文件不存在，程序会自动创建。
+- 如果 JSON 文件损坏，程序会自动重置为可用格式，尽量避免程序崩溃。
 
-### 1.2 Object contour detection
+示例格式：
 
-| Short name | Paper | Source | Code/Project Link  |
-| --- | --- | --- | --- |
-| CEDN | [Object Contour Detection with a Fully Convolutional Encoder-Decoder Network](http://openaccess.thecvf.com/content_cvpr_2016/papers/Yang_Object_Contour_Detection_CVPR_2016_paper.pdf) | CVPR 2016 | [[code-caffe]](https://github.com/jimeiyang/objectContourDetector) [[code-TF]](https://github.com/Raj-08/tensorflow-object-contour-detection) |
-|  | [Weakly Supervised Object Boundaries](http://openaccess.thecvf.com/content_cvpr_2016/papers/Khoreva_Weakly_Supervised_Object_CVPR_2016_paper.pdf) | CVPR 2016 |  |
+```json
+{
+  "records": {
+    "2026-03-21": 2
+  }
+}
+```
 
+## 项目结构
 
-### 1.3 Semantic edge detection (Category-Aware)
+```text
+.
+├── data/
+│   └── brush_log.json
+├── main.py
+└── README.md
+```
 
-| Short name | Paper | Source | Code/Project Link  |
-| --- | --- | --- | --- |
-| RINDNet | [RINDNet: Edge Detection for Discontinuity in Reflectance, Illumination, Normal and Depth](https://arxiv.org/abs/2108.00616) | ICCV 2021 | [[code]](https://github.com/MengyangPu/RINDNet) |
-| RPCNet | [Joint Semantic Segmentation and Boundary Detection using Iterative Pyramid Contexts](http://openaccess.thecvf.com/content_CVPR_2020/papers/Zhen_Joint_Semantic_Segmentation_and_Boundary_Detection_Using_Iterative_Pyramid_Contexts_CVPR_2020_paper.pdf) | CVPR 2020 | [[code]](https://github.com/mingminzhen/RPCNet) |
-| DFF | [Dynamic Feature Fusion for Semantic Edge Detection](https://arxiv.org/pdf/1902.09104.pdf) | IJCAI 2019 | [[code]](https://github.com/Lavender105/DFF) |
-| STEAL | [Devil is in the Edges: Learning Semantic Boundaries from Noisy Annotations](https://arxiv.org/pdf/1904.07934.pdf) | CVPR 2019 | [[code]](https://github.com/nv-tlabs/STEAL) [[project]](https://nv-tlabs.github.io/STEAL/) |
-| SEAL | [Simultaneous Edge Alignment and Learning](http://openaccess.thecvf.com/content_ECCV_2018/papers/Zhiding_Yu_SEAL_A_Framework_ECCV_2018_paper.pdf) | ECCV 2018 | [[code]](https://github.com/Chrisding/seal) |
-| CASENet | [CASENet: Deep Category-Aware Semantic Edge Detection](http://openaccess.thecvf.com/content_cvpr_2017/papers/Yu_CASENet_Deep_Category-Aware_CVPR_2017_paper.pdf) | CVPR 2017 | [[code]](http://www.merl.com/research/license#CASENet) |
-| `dataset` | [Semantic Contours from Inverse Detectors](https://www.robots.ox.ac.uk/~vgg/rg/papers/BharathICCV2011.pdf) | ICCV 2011 | [[code]](https://github.com/bharath272/semantic_contours) |
+## 后续可扩展方向
 
+- 语音提醒
+- 星星奖励累计系统
+- 最近 7 天刷牙记录展示
+- 家长设置刷牙总时长
+- 加入卡通贴图或牙齿图标
 
-### 1.4 Occlusion boundary detection
+## MVP 验收说明
 
-| Short name | Paper | Source | Code/Project Link  |
-| --- | --- | --- | --- |
-| DOOBNet | [DOOBNet: Deep Object Occlusion Boundary Detection from an Image](https://arxiv.org/abs/1806.03772) | ACCV 2018 | [[code]](https://github.com/GuoxiaWang/DOOBNet) |
-| DOC & `dataset` | [DOC: Deep OCclusion Estimation From a Single Image](https://arxiv.org/abs/1511.06457) | ECCV 2016 | [[code]](https://github.com/pengwangucla/DOC) |
-|  | [Occlusion Boundary Detection via Deep Exploration of Context](http://openaccess.thecvf.com/content_cvpr_2016/papers/Fu_Occlusion_Boundary_Detection_CVPR_2016_paper.pdf) | CVPR 2016 |  |
+当前版本满足以下要求：
 
-
-### 1.5 Edge detection from multi-frames
-
-| Short name | Paper | Source | Code/Project Link  |
-| --- | --- | --- | --- |
-| Boundary Flow | [Boundary Flow: A Siamese Network that Predicts Boundary Motion without Training on Motion](http://openaccess.thecvf.com/content_cvpr_2018/papers/Lei_Boundary_Flow_A_CVPR_2018_paper.pdf) | CVPR 2018 |  |
-| LEGO | [LEGO: Learning Edge with Geometry all at Once by Watching Videos](http://openaccess.thecvf.com/content_cvpr_2018/papers/Yang_LEGO_Learning_Edge_CVPR_2018_paper.pdf) | CVPR 2018 | [[code]](https://github.com/zhenheny/LEGO) |
-|  | [Unsupervised Learning of Edges](http://openaccess.thecvf.com/content_cvpr_2016/papers/Li_Unsupervised_Learning_of_CVPR_2016_paper.pdf) | CVPR 2016 | [[code]](https://github.com/happyharrycn/unsupervised_edges) |
-
-
----
-
-
-## 2. Traditional approaches
-
-| Short name | Paper | Source | Code/Project Link  |
-| --- | --- | --- | --- |
-| SemiContour | [SemiContour: A Semi-supervised Learning Approach for Contour Detection](http://openaccess.thecvf.com/content_cvpr_2016/papers/Zhang_SemiContour_A_Semi-Supervised_CVPR_2016_paper.pdf) | CVPR 2016 |  |
-| OEF | [Oriented Edge Forests for Boundary Detection](http://openaccess.thecvf.com/content_cvpr_2015/papers/Hallman_Oriented_Edge_Forests_2015_CVPR_paper.pdf) |  CVPR 2015 | [[code]](https://github.com/samhallman/oef) |
-| SE | [Fast edge detection using structured forests](https://arxiv.org/pdf/1406.5549.pdf) | TPAMI 2015 | [[code]](https://github.com/pdollar/edges) |
-| Edge Boxes | [Edge Boxes: Locating Object Proposals from Edges](https://www.microsoft.com/en-us/research/wp-content/uploads/2014/09/ZitnickDollarECCV14edgeBoxes.pdf) | ECCV 2014 | [[code]](https://github.com/pdollar/edges) |
-| PMI | [Crisp Boundary Detection Using Pointwise Mutual Information](https://link.springer.com/chapter/10.1007/978-3-319-10578-9_52) | ECCV 2014 | [[code]](https://github.com/phillipi/crisp-boundaries) |
-| Sketch Tokens | [Sketch tokens: A learned mid-level representation for contour and object detection](http://openaccess.thecvf.com/content_cvpr_2013/papers/Lim_Sketch_Tokens_A_2013_CVPR_paper.pdf) | CVPR 2013 |  |
-| SCG | [Discriminatively Trained Sparse Code Gradients for Contour Detection](http://papers.nips.cc/paper/4787-discriminatively-trained-sparse-code-gradients-for-contour-detection.pdf) | NIPS 2012 |  |
-| gPb-owt-ucm | [Contour Detection and Hierarchical Image Segmentation](http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.374.3367&rep=rep1&type=pdf) | TPAMI 2011 | [[code]](http://www.eecs.berkeley.edu/Research/Projects/CS/vision/grouping/BSR/BSR_source.tgz) [[project]](https://www2.eecs.berkeley.edu/Research/Projects/CS/vision/grouping/resources.html) |
-| XDoG | [XDoG: advanced image stylization with eXtended Difference-of-Gaussians](http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.648.990&rep=rep1&type=pdf) | NPAR 2011 | [[code(python)]](https://github.com/heitorrapela/xdog) <br/> [[online demo]](https://xdog.alexpeattie.com/) <br/>Others: [code(C++)](https://github.com/Sunwinds/xdog-demo) [code(matlab)](https://github.com/CemalUnal/XDoG-Filter) [code(Web APP)](https://github.com/alexpeattie/xdog-sketch) |
-| FDoG | [Coherent Line Drawing](http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.108.559&rep=rep1&type=pdf) | NPAR 2007 | [[code]](https://github.com/SSARCandy/Coherent-Line-Drawing) [[project]](https://ssarcandy.tw/Coherent-Line-Drawing/) |
-| Canny | [A Computational Approach to Edge Detection](http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.420.3300&rep=rep1&type=pdf) | TPAMI 1986 | [[code]](https://rosettacode.org/wiki/Canny_edge_detector) [[code-py]](https://opencv-python-tutroals.readthedocs.io/en/latest/py_tutorials/py_imgproc/py_canny/py_canny.html) |
-
-
----
-
-
-## 3. Useful Links
-
- - Code to plot edge PR curves: [MCG-NKU/plot-edge-pr-curves](https://github.com/MCG-NKU/plot-edge-pr-curves)
+1. `python main.py` 可启动图形界面。
+2. 点击开始后，2 分钟倒计时正常运行。
+3. 每 30 秒自动切换刷牙区域。
+4. 暂停、继续、重置都可正常工作。
+5. 刷牙结束后会弹出鼓励提示。
+6. 当天完成次数会写入本地 JSON。
+7. 重新打开程序后仍可看到今天的完成次数。
+8. 整体界面为儿童友好风格，适合 MVP 演示和继续迭代。
