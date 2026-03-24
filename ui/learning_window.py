@@ -31,11 +31,11 @@ from PySide6.QtWidgets import (
 
 from config import load_config
 from feature_extractor import extract_video_features
-from learning_system import build_quality_standard_from_feature_rows
+from learning_system import build_quality_standard_from_feature_rows, build_structured_lunge_sample
 from pose.estimator import PoseEstimator
 from quality_standard import load_quality_standard
 from rules.evaluator import evaluate_sequence
-from ui.video_overlay import render_overlay_video
+from ui.video_overlay import render_learning_overlay_video
 
 
 class LearningSystemWindow(QMainWindow):
@@ -100,7 +100,7 @@ class LearningSystemWindow(QMainWindow):
         self.sample_list.currentRowChanged.connect(self._load_selected_sample_analysis)
         queue_layout.addWidget(self.sample_list)
 
-        player_group = QGroupBox("样本分析模式 A - 骨架叠加视频")
+        player_group = QGroupBox("样本分析模式 A - 骨架叠加视频（无预警判定）")
         player_layout = QVBoxLayout(player_group)
         self.video_label = QLabel("请先选择并分析样本视频")
         self.video_label.setAlignment(Qt.AlignCenter)
@@ -263,19 +263,29 @@ class LearningSystemWindow(QMainWindow):
         sequence = self.estimator.extract(sample_path)
         evaluation = evaluate_sequence(sequence, self.config, manual_go_time=None)
         feature_row = extract_video_features(sequence, self.config, str(sample_path), sample["category"])
-        overlay_path, _ = render_overlay_video(sample_path, output_dir, sequence, evaluation)
+        structured_sample = build_structured_lunge_sample(sequence, evaluation, feature_row, sample["category"], lunge_index=1)
+        overlay_path = render_learning_overlay_video(
+            video_path=sample_path,
+            output_dir=output_dir,
+            pose_sequence=sequence,
+            stages=evaluation.metrics["lunge_state"].tolist(),
+        )
         features_path = output_dir / "features.json"
         lunge_segments_path = output_dir / "lunge_segments.json"
+        structured_sample_path = output_dir / "structured_sample.json"
         metrics = evaluation.metrics[["current_lunge_index", "lunge_state"]].to_dict(orient="records")
         features_path.write_text(json.dumps(feature_row, ensure_ascii=False, indent=2), encoding="utf-8")
         lunge_segments_path.write_text(json.dumps(metrics, ensure_ascii=False, indent=2), encoding="utf-8")
+        structured_sample_path.write_text(json.dumps(structured_sample, ensure_ascii=False, indent=2), encoding="utf-8")
         sample["analysis"] = {
             "overlay_path": overlay_path,
             "output_dir": output_dir,
             "evaluation": evaluation,
             "feature_row": feature_row,
+            "structured_sample": structured_sample,
             "features_path": features_path,
             "lunge_segments_path": lunge_segments_path,
+            "structured_sample_path": structured_sample_path,
         }
         sample["feature_row"] = feature_row
         if sample["status"] == "pending":
@@ -377,22 +387,24 @@ class LearningSystemWindow(QMainWindow):
         self.status_text.setText(
             f"当前帧：{frame_index}\n"
             f"当前时间：{frame_index / fps:.2f}s\n"
-            f"当前弓步：第 {assessment.current_lunge_index} 个\n"
+            f"学习样本：第 {assessment.current_lunge_index} 个弓步\n"
             f"当前阶段：{assessment.lunge_state}\n"
-            f"当前状态：{assessment.current_text}\n"
-            f"样本状态：{self._sample_label(self.current_sample)}"
+            f"当前样本状态：{self._sample_label(self.current_sample)}\n"
+            f"说明：样本分析模式仅展示特征，不输出训练预警。"
         )
 
     def _update_frame_feature_panel(self, frame_index: int) -> None:
         if self.current_sample is None:
             return
         metrics = self.current_sample["analysis"]["evaluation"].metrics.iloc[frame_index]
+        structured = self.current_sample["analysis"].get("structured_sample", {})
         self.frame_feature_text.setText(
             f"前膝角：{metrics['front_knee_angle']:.2f}°\n"
             f"头部倾斜：{metrics['head_tilt_angle']:.2f}°\n"
-            f"手腕位置：{metrics['wrist_forward_dist_norm']:.3f}\n"
+            f"躯干倾角：{metrics['trunk_lean_angle']:.2f}°\n"
+            f"手腕前伸：{metrics['wrist_forward_dist_norm']:.3f}\n"
             f"步幅归一化：{metrics['stride_length_norm']:.3f}\n"
-            f"躯干前倾：{metrics['trunk_lean_angle']:.2f}°"
+            f"目标延伸线提示：{structured.get('summary', {}).get('biomech_focus', {}).get('extension_line_norm', 0.0):.3f}"
         )
 
     def _update_lunge_feature_panel(self, feature_row: dict) -> None:
@@ -401,7 +413,9 @@ class LearningSystemWindow(QMainWindow):
             f"反应时间（手启动）：{feature_row.get('hand_start_time', 0.0):.3f}s\n"
             f"稳定时长：{feature_row.get('stable_hold_duration', 0.0):.3f}s\n"
             f"手脚时差：{feature_row.get('hand_foot_start_delta', 0.0):.3f}s\n"
-            f"头部倾斜最大值：{feature_row.get('head_tilt_max_deg', 0.0):.2f}°"
+            f"头部倾斜最大值：{feature_row.get('head_tilt_max_deg', 0.0):.2f}°\n"
+            f"重点特征-躯干倾角β：{feature_row.get('trunk_lean_max_deg', 0.0):.2f}°\n"
+            f"重点特征-前膝角α：{feature_row.get('front_knee_angle_min', 0.0):.2f}°"
         )
 
     def include_current_sample(self) -> None:
@@ -478,6 +492,7 @@ class LearningSystemWindow(QMainWindow):
             f"已分析样本数：{analyzed_count}\n"
             f"已确认纳入样本数：{included_count}\n"
             f"当前学习库样本数：{len(self.feature_rows)}\n"
+            f"模式分离：training_assistant_mode（训练预警）/ learning_sample_mode（样本观察）\n"
             f"提示：默认所有样本都不会进入学习库，只有点击“纳入学习库”才会更新标准。"
         )
 
@@ -492,7 +507,8 @@ class LearningSystemWindow(QMainWindow):
             f"待分析样本数：{sum(1 for sample in self.samples if sample['status'] == 'pending')}\n"
             f"稳定窗口：{thresholds.get('stability_window_sec', '--')} 秒\n"
             f"头部偏斜阈值：{thresholds.get('head_tilt_deg_thr', '--')} 度\n"
-            f"髋膝线角度阈值：{thresholds.get('hip_knee_ground_angle_thr', '--')} 度"
+            f"髋膝线角度阈值：{thresholds.get('hip_knee_ground_angle_thr', '--')} 度\n"
+            f"重点学习维度：躯干倾角β / 前膝角α / 前伸路线 / 到位时间t / 速度v / 收回前稳定性"
         )
         features = standard.get("features", {})
         self.metrics_table.setRowCount(len(features))

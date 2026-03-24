@@ -67,6 +67,35 @@ def render_overlay_video(
     return overlay_path, saved_keyframes
 
 
+def render_learning_overlay_video(
+    video_path: Path,
+    output_dir: Path,
+    pose_sequence: PoseSequence,
+    stages: list[str],
+) -> Path:
+    output_dir.mkdir(parents=True, exist_ok=True)
+    overlay_path = output_dir / "overlay_learning.mp4"
+    cap = cv2.VideoCapture(str(video_path))
+    writer = cv2.VideoWriter(
+        str(overlay_path),
+        cv2.VideoWriter_fourcc(*"mp4v"),
+        pose_sequence.fps,
+        (pose_sequence.width, pose_sequence.height),
+    )
+    frame_index = 0
+    while True:
+        ok, frame = cap.read()
+        if not ok or frame_index >= pose_sequence.frame_count:
+            break
+        stage = stages[min(frame_index, len(stages) - 1)] if stages else "IDLE"
+        annotated = draw_learning_overlay(frame, pose_sequence, frame_index, stage)
+        writer.write(annotated)
+        frame_index += 1
+    cap.release()
+    writer.release()
+    return overlay_path
+
+
 def draw_pose_overlay(frame, pose_sequence: PoseSequence, frame_index: int, assessment):
     canvas = frame.copy()
     points: dict[str, tuple[int, int]] = {}
@@ -89,6 +118,20 @@ def draw_pose_overlay(frame, pose_sequence: PoseSequence, frame_index: int, asse
         warning_lines.append("歪头提醒")
     warning_lines.append(f"建议：{assessment.coaching_advice}")
     return _draw_chinese_labels(canvas, warning_lines)
+
+
+def draw_learning_overlay(frame, pose_sequence: PoseSequence, frame_index: int, stage: str):
+    canvas = frame.copy()
+    points: dict[str, tuple[int, int]] = {}
+    for name in KEYPOINTS:
+        x = int(pose_sequence.arrays[name][frame_index, 0] * pose_sequence.width)
+        y = int(pose_sequence.arrays[name][frame_index, 1] * pose_sequence.height)
+        points[name] = (x, y)
+        cv2.circle(canvas, (x, y), 3 if "eye" in name or "ear" in name or name == "nose" else 4, (0, 255, 0), -1)
+    for start, end in SKELETON:
+        cv2.line(canvas, points[start], points[end], (255, 215, 0), 2)
+    lines = [f"学习样本：第 1 个弓步", f"当前阶段：{stage}", f"帧：{frame_index}"]
+    return _draw_chinese_labels(canvas, lines)
 
 
 def _draw_chinese_labels(frame: np.ndarray, lines: list[str]) -> np.ndarray:
