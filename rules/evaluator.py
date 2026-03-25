@@ -78,7 +78,12 @@ def _line_angle_degrees(p1: np.ndarray, p2: np.ndarray) -> np.ndarray:
     return np.degrees(np.arctan2(delta[:, 1], delta[:, 0]))
 
 
-def _compute_lunge_state_machine(stride_distance: np.ndarray, fps: float) -> tuple[np.ndarray, np.ndarray, list[str], int]:
+def _compute_lunge_state_machine(
+    stride_distance: np.ndarray,
+    leg_extension_signed: np.ndarray,
+    arm_extension_signed: np.ndarray,
+    fps: float,
+) -> tuple[np.ndarray, np.ndarray, list[str], int]:
     if len(stride_distance) == 0:
         return np.zeros(0, dtype=int), np.zeros(0, dtype=int), [], 0
 
@@ -92,6 +97,10 @@ def _compute_lunge_state_machine(stride_distance: np.ndarray, fps: float) -> tup
     return_thr = baseline + max(0.015, amplitude * 0.08)
     min_gap_frames = max(1, int(round(fps * 0.30)))
     hold_frames_required = max(1, int(round(fps * 0.10)))
+    leg_out_thr = max(0.012, float(np.percentile(np.abs(leg_extension_signed), 75)) * 0.6)
+    arm_extend_thr = max(0.010, float(np.percentile(np.abs(arm_extension_signed), 75)) * 0.6)
+    ready_leg_thr = leg_out_thr * 0.35
+    ready_arm_thr = arm_extend_thr * 0.35
 
     current_numbers = np.zeros(len(stride_distance), dtype=int)
     completed_numbers = np.zeros(len(stride_distance), dtype=int)
@@ -102,34 +111,72 @@ def _compute_lunge_state_machine(stride_distance: np.ndarray, fps: float) -> tup
     hold_frames = 0
     lunge_start_frame: int | None = None
     last_completion_frame = -min_gap_frames
+    arm_extended = False
+    leg_confirm_frames = 0
+    arm_confirm_frames = 0
 
-    for i, (stride, speed) in enumerate(zip(stride_distance, velocity)):
+    for i, (stride, speed, leg_delta, arm_delta) in enumerate(zip(stride_distance, velocity, leg_extension_signed, arm_extension_signed)):
         previous_state = state
+        leg_out = leg_delta >= leg_out_thr
+        arm_out = arm_delta >= arm_extend_thr
+        backstep_motion = leg_delta < -ready_leg_thr
         if state == "IDLE":
             current = max(completed + 1, 1) if peak > start_thr else max(completed, 1)
             hold_frames = 0
+            leg_confirm_frames = 0
+            arm_confirm_frames = 0
+            arm_extended = False
             if i - last_completion_frame < min_gap_frames:
                 state = "IDLE"
-            elif stride >= prepare_thr and speed >= 0:
+            elif stride >= prepare_thr and speed >= 0 and leg_out and not backstep_motion:
                 state = "PREPARE"
                 lunge_start_frame = i
         elif state == "PREPARE":
             current = completed + 1
-            if stride >= start_thr and speed >= 0:
-                state = "LUNGE_OUT"
-                current = completed + 1
+            leg_confirm_frames = leg_confirm_frames + 1 if leg_out else 0
+            arm_confirm_frames = arm_confirm_frames + 1 if arm_out else 0
+            arm_extended = arm_extended or arm_out
+            if backstep_motion:
+                state = "IDLE"
+                lunge_start_frame = None
+                arm_extended = False
+            elif stride >= start_thr and speed >= 0 and leg_confirm_frames >= 2:
+                state = "LEG_OUT"
             elif stride < prepare_thr:
                 state = "IDLE"
                 lunge_start_frame = None
-        elif state == "LUNGE_OUT":
+                arm_extended = False
+        elif state == "LEG_OUT":
             current = completed + 1
-            if stride >= hold_thr:
+            arm_confirm_frames = arm_confirm_frames + 1 if arm_out else 0
+            arm_extended = arm_extended or arm_out
+            if backstep_motion:
+                state = "IDLE"
+                lunge_start_frame = None
+                arm_extended = False
+            elif arm_confirm_frames >= 2 and arm_extended:
+                state = "ARM_EXTEND"
+            elif stride < prepare_thr:
+                state = "IDLE"
+                lunge_start_frame = None
+                arm_extended = False
+        elif state == "ARM_EXTEND":
+            current = completed + 1
+            if leg_out and arm_out and stride >= start_thr:
+                state = "LUNGE_ACTIVE"
+            elif stride < prepare_thr or backstep_motion:
+                state = "IDLE"
+                lunge_start_frame = None
+                arm_extended = False
+        elif state == "LUNGE_ACTIVE":
+            current = completed + 1
+            if stride >= hold_thr and leg_out and arm_out:
                 hold_frames += 1
                 if hold_frames >= hold_frames_required:
                     state = "HOLD"
             else:
                 hold_frames = 0
-            if speed < 0 and stride < hold_thr:
+            if speed < 0 and (stride < hold_thr or (not leg_out and not arm_out)):
                 state = "RETURN"
         elif state == "HOLD":
             current = completed + 1
@@ -139,15 +186,17 @@ def _compute_lunge_state_machine(stride_distance: np.ndarray, fps: float) -> tup
                 state = "PREPARE"
         elif state == "RETURN":
             current = completed + 1
-            if stride <= return_thr and (lunge_start_frame is None or i - lunge_start_frame >= min_gap_frames):
+            back_to_ready = abs(leg_delta) <= ready_leg_thr and abs(arm_delta) <= ready_arm_thr
+            if back_to_ready and stride <= return_thr and (lunge_start_frame is None or i - lunge_start_frame >= min_gap_frames):
                 completed += 1
                 last_completion_frame = i
                 state = "IDLE"
                 lunge_start_frame = None
                 hold_frames = 0
+                arm_extended = False
                 logger.debug("Lunge completed at frame %s -> completed=%s", i, completed)
-            elif stride >= hold_thr and speed >= 0:
-                state = "LUNGE_OUT"
+            elif stride >= hold_thr and speed >= 0 and leg_out and arm_out:
+                state = "LUNGE_ACTIVE"
 
         if previous_state != state:
             logger.debug("Lunge state transition at frame %s: %s -> %s", i, previous_state, state)
@@ -206,7 +255,17 @@ def evaluate_sequence(sequence: PoseSequence, config: AppConfig, manual_go_time:
     thigh_raise_angles = np.array([_hip_knee_line_angle(lead_hip[i], lead_knee[i]) for i in range(sequence.frame_count)])
     knee_below_hip = lead_knee[:, 1] > lead_hip[:, 1]
     stride_distance = np.abs(lead_ankle[:, 0] - back_ankle[:, 0])
-    current_lunge_numbers, completed_numbers, lunge_states, completed_lunges = _compute_lunge_state_machine(stride_distance, fps)
+    forward_sign = 1.0 if float(np.mean(lead_ankle_x[: max(3, int(0.2 * fps))])) >= float(np.mean(back_ankle[:, 0][: max(3, int(0.2 * fps))])) else -1.0
+    lead_ankle_baseline = float(np.median(lead_ankle_x[: max(3, int(0.2 * fps))]))
+    lead_wrist_baseline = float(np.median(lead_wrist_x[: max(3, int(0.2 * fps))]))
+    leg_extension_signed = forward_sign * (lead_ankle_x - lead_ankle_baseline)
+    arm_extension_signed = forward_sign * (lead_wrist_x - lead_wrist_baseline)
+    current_lunge_numbers, completed_numbers, lunge_states, completed_lunges = _compute_lunge_state_machine(
+        stride_distance,
+        leg_extension_signed,
+        arm_extension_signed,
+        fps,
+    )
     torso_length = np.maximum(np.linalg.norm(shoulder - lead_hip, axis=1), 1e-6)
 
     eye_angle = np.abs(_line_angle_degrees(sequence.arrays["left_eye"], sequence.arrays["right_eye"]))

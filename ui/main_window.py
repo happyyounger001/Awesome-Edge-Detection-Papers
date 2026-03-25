@@ -70,11 +70,13 @@ class FencingMainWindow(QMainWindow):
         self.current_time = 0.0
         self.duration = 0.0
         self.playback_rate = 1.0
+        self.rotation_fix_deg = 0.0
 
         self.setWindowTitle("Fencing Lunge AI Trainer")
         self.resize(1640, 960)
         self._build_ui()
         self._load_config_to_widgets()
+        self._apply_common_styles()
 
     def closeEvent(self, event):
         if self.capture is not None:
@@ -100,24 +102,21 @@ class FencingMainWindow(QMainWindow):
         playback_layout = QVBoxLayout(playback_group)
         self.video_label = QLabel("请先导入视频")
         self.video_label.setAlignment(Qt.AlignCenter)
-        self.video_label.setMinimumSize(self.config.preview_width, self.config.preview_height)
+        self.video_label.setMinimumSize(int(self.config.preview_width * 0.8), int(self.config.preview_height * 0.8))
         self.video_label.setStyleSheet("background:#111;color:#fff;border-radius:8px;")
         playback_controls = QHBoxLayout()
-        self.play_button = QPushButton("播放")
-        self.play_button.clicked.connect(self.toggle_play)
-        self.pause_button = QPushButton("暂停")
-        self.pause_button.clicked.connect(self.pause)
+        self.play_toggle_button = QPushButton("播放")
+        self.play_toggle_button.clicked.connect(self.toggle_play)
         self.replay_button = QPushButton("重播")
         self.replay_button.clicked.connect(self.replay)
         self.rate_combo = QComboBox()
-        self.rate_combo.addItems(["0.5x", "1.0x", "1.5x", "2.0x"])
+        self.rate_combo.addItems(["0.5x", "1.0x", "2.0x"])
         self.rate_combo.setCurrentText("1.0x")
         self.rate_combo.currentTextChanged.connect(self.change_playback_rate)
         self.progress_slider = QSlider(Qt.Horizontal)
         self.progress_slider.sliderPressed.connect(self._on_slider_pressed)
         self.progress_slider.sliderReleased.connect(self.seek_video)
-        playback_controls.addWidget(self.play_button)
-        playback_controls.addWidget(self.pause_button)
+        playback_controls.addWidget(self.play_toggle_button)
         playback_controls.addWidget(self.replay_button)
         playback_controls.addWidget(QLabel("倍速"))
         playback_controls.addWidget(self.rate_combo)
@@ -199,6 +198,17 @@ class FencingMainWindow(QMainWindow):
         self._update_realtime_placeholder()
         self._update_algorithm_panel(None)
 
+    def _apply_common_styles(self) -> None:
+        self.setStyleSheet(
+            """
+            QGroupBox { font-weight: 600; border: 1px solid #d0d7de; border-radius: 8px; margin-top: 8px; }
+            QGroupBox::title { subcontrol-origin: margin; left: 12px; padding: 0 4px; color: #1f4f82; }
+            QPushButton { background: #2f6fed; color: white; border-radius: 6px; padding: 6px 10px; }
+            QPushButton:hover { background: #2458bc; }
+            QTextEdit { border: 1px solid #d0d7de; border-radius: 8px; background: #ffffff; }
+            """
+        )
+
     def _load_config_to_widgets(self) -> None:
         self.stability_spin.setValue(self.config.stability_seconds_threshold)
         self.thigh_angle_spin.setValue(self.config.thigh_raise_angle_threshold)
@@ -225,12 +235,14 @@ class FencingMainWindow(QMainWindow):
         lunge_state = assessment.lunge_state if assessment is not None else "IDLE"
         self.algorithm_text.setText(
             f"动作识别：MediaPipe Pose\n"
-            f"计数规则：打出 + 收回 = 1 个完整弓步\n"
+            f"计数规则：站立→踢腿伸手→收腿 = 1 个完整弓步\n"
             f"稳定性规则：手 / 肘 / 肩在 {self.config.stability_seconds_threshold:.2f} 秒内晃动不超阈值\n"
             f"抬大腿规则：膝-髋连线与地面夹角 >= {self.config.thigh_raise_angle_threshold:.1f} 度\n"
             f"头部规则：头部偏斜角 > {self.config.head_tilt_angle_threshold:.1f} 度触发提醒\n"
             f"膝髋位置规则：{self.config.require_knee_below_hip_for_thigh_raise}\n"
-            f"当前状态机：{lunge_state}"
+            f"后退过滤：后退或微调不计弓步\n"
+            f"当前状态机：{lunge_state}\n"
+            f"当前标准版本：{Path(self.config.standard_path).name if getattr(self.config, 'standard_path', None) else '未配置'}"
         )
 
     def _show_progress(self, title: str, percent: int, status: str = "running") -> None:
@@ -258,13 +270,14 @@ class FencingMainWindow(QMainWindow):
         if self.capture is not None:
             self.capture.release()
         self.capture = cv2.VideoCapture(str(self.video_path))
+        self.rotation_fix_deg = self._detect_rotation_fix(self.capture)
         frame_count = int(self.capture.get(cv2.CAP_PROP_FRAME_COUNT))
         fps = self.capture.get(cv2.CAP_PROP_FPS) or 30.0
         self.duration = frame_count / fps if fps else 0.0
         self.progress_slider.setMaximum(max(0, frame_count - 1))
         self.current_frame = 0
         self.is_video_loading = True
-        self.play_button.setEnabled(False)
+        self.play_toggle_button.setEnabled(False)
         self._show_progress("视频加载中", 0)
 
         def update_progress(percent: int) -> None:
@@ -273,7 +286,7 @@ class FencingMainWindow(QMainWindow):
 
         self.preview_sequence = self.preview_estimator.extract(self.video_path, progress_callback=update_progress)
         self.is_video_loading = False
-        self.play_button.setEnabled(True)
+        self.play_toggle_button.setEnabled(True)
         self._show_progress("视频加载完成", 100, status="success")
         logger.info("Video loaded: %s frames, duration %.2fs", frame_count, self.duration)
         self._show_frame(0)
@@ -281,15 +294,20 @@ class FencingMainWindow(QMainWindow):
     def toggle_play(self) -> None:
         if self.capture is None or self.is_video_loading:
             return
+        if self.is_playing:
+            self.pause()
+            return
         if self.current_frame >= self.progress_slider.maximum():
-            self.replay()
+            self._show_frame(0)
         self.is_playing = True
+        self.play_toggle_button.setText("暂停")
         self._restart_timer()
         logger.info("Playback started at frame=%s rate=%s", self.current_frame, self.playback_rate)
 
     def pause(self) -> None:
         self.timer.stop()
         self.is_playing = False
+        self.play_toggle_button.setText("播放")
         logger.info("Playback paused at frame=%s", self.current_frame)
 
     def replay(self) -> None:
@@ -344,6 +362,7 @@ class FencingMainWindow(QMainWindow):
         if not ok:
             self.timer.stop()
             self.is_playing = False
+            self.play_toggle_button.setText("播放")
             return
         self.current_frame = frame_index
         fps = self.capture.get(cv2.CAP_PROP_FPS) or 30.0
@@ -358,7 +377,7 @@ class FencingMainWindow(QMainWindow):
             preview_eval = evaluate_sequence(self.preview_sequence, self.config, self.manual_go_time)
             assessment = preview_eval.frame_assessments[min(frame_index, len(preview_eval.frame_assessments) - 1)]
         annotated = draw_pose_overlay(frame, self.preview_sequence, frame_index, assessment)
-        self._display_image(annotated)
+        self._display_image(self._normalize_frame_orientation(annotated))
         self._update_realtime_panel(assessment)
         self._update_algorithm_panel(assessment)
 
@@ -372,21 +391,38 @@ class FencingMainWindow(QMainWindow):
         self.video_label.setPixmap(pixmap)
 
     def _update_realtime_panel(self, assessment) -> None:
-        self.realtime_text.setText(
-            f"当前第 {assessment.current_lunge_index} 个弓步\n"
-            f"已完成弓步数：{assessment.completed_lunge_count}\n"
-            f"当前状态：{assessment.current_text}\n"
-            f"当前阶段：{assessment.lunge_state}\n"
-            f"是否得分：{assessment.score_text}\n"
-            f"本次最需要改进：{assessment.top_issue}\n"
-            f"训练建议：{assessment.coaching_advice}\n"
-            f"细项判定：\n"
-            f"抬大腿：{assessment.thigh_raise}\n"
-            f"稳定性：{assessment.stability}\n"
-            f"手脚顺序：{assessment.hand_foot_order}\n"
-            f"头部姿态：{assessment.head_tilt}\n"
-            f"稳定性细节：{assessment.stability_details}"
+        is_good = assessment.current_text == "很棒，得分！"
+        status_color = "#15803d" if is_good else "#b91c1c"
+        issue_bg = "#dcfce7" if is_good else "#fee2e2"
+        self.realtime_text.setHtml(
+            f"<h3>当前弓步：第 {assessment.current_lunge_index} 个（已完成 {assessment.completed_lunge_count} 个）</h3>"
+            f"<p><b>当前阶段：</b>{assessment.lunge_state}</p>"
+            f"<p style='color:{status_color};font-size:18px;'><b>当前状态：{assessment.current_text}</b></p>"
+            f"<p style='background:{issue_bg};padding:8px;border-radius:6px;'><b>本次最需要改进：{assessment.top_issue}</b></p>"
+            f"<p><b>训练建议：</b>{assessment.coaching_advice}</p>"
+            f"<hr>"
+            f"<p>抬大腿：{assessment.thigh_raise} ｜ 稳定性：{assessment.stability} ｜ 手脚顺序：{assessment.hand_foot_order} ｜ 头部：{assessment.head_tilt}</p>"
+            f"<p><b>稳定性细节：</b>{assessment.stability_details}</p>"
         )
+
+    def _detect_rotation_fix(self, capture: cv2.VideoCapture) -> float:
+        if hasattr(cv2, "CAP_PROP_ORIENTATION_META"):
+            try:
+                orientation = capture.get(cv2.CAP_PROP_ORIENTATION_META)
+                if orientation in {90.0, 180.0, 270.0}:
+                    return float(orientation)
+            except Exception:
+                return 0.0
+        return 0.0
+
+    def _normalize_frame_orientation(self, frame):
+        if self.rotation_fix_deg == 90.0:
+            return cv2.rotate(frame, cv2.ROTATE_90_CLOCKWISE)
+        if self.rotation_fix_deg == 180.0:
+            return cv2.rotate(frame, cv2.ROTATE_180)
+        if self.rotation_fix_deg == 270.0:
+            return cv2.rotate(frame, cv2.ROTATE_90_COUNTERCLOCKWISE)
+        return frame
 
     def mark_go(self) -> None:
         if self.capture is None:

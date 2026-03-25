@@ -52,11 +52,13 @@ class LearningSystemWindow(QMainWindow):
         self.capture: cv2.VideoCapture | None = None
         self.current_frame_index = 0
         self.playback_rate = 1.0
+        self.rotation_fix_deg = 0.0
         self.timer = QTimer(self)
         self.timer.timeout.connect(self._next_frame)
         self.setWindowTitle("Learning System - 样本分析模式")
         self.resize(1520, 980)
         self._build_ui()
+        self._apply_common_styles()
 
     def _build_ui(self) -> None:
         root = QWidget()
@@ -107,10 +109,8 @@ class LearningSystemWindow(QMainWindow):
         self.video_label.setMinimumSize(880, 480)
         self.video_label.setStyleSheet("background:#111;color:#fff;border-radius:8px;")
         controls = QHBoxLayout()
-        play_button = QPushButton("播放")
-        play_button.clicked.connect(self.play_video)
-        pause_button = QPushButton("暂停")
-        pause_button.clicked.connect(self.pause_video)
+        self.play_toggle_button = QPushButton("播放")
+        self.play_toggle_button.clicked.connect(self.play_video)
         replay_button = QPushButton("重播")
         replay_button.clicked.connect(self.replay_video)
         self.rate_combo = QComboBox()
@@ -119,8 +119,7 @@ class LearningSystemWindow(QMainWindow):
         self.rate_combo.currentTextChanged.connect(self._change_playback_rate)
         self.progress_slider = QSlider(Qt.Horizontal)
         self.progress_slider.sliderReleased.connect(self.seek_video)
-        controls.addWidget(play_button)
-        controls.addWidget(pause_button)
+        controls.addWidget(self.play_toggle_button)
         controls.addWidget(replay_button)
         controls.addWidget(QLabel("倍速"))
         controls.addWidget(self.rate_combo)
@@ -177,6 +176,17 @@ class LearningSystemWindow(QMainWindow):
         layout.addWidget(table_group, 6, 0, 1, 3)
         self.setCentralWidget(root)
         self._render_meta()
+
+    def _apply_common_styles(self) -> None:
+        self.setStyleSheet(
+            """
+            QGroupBox { font-weight: 600; border: 1px solid #d0d7de; border-radius: 8px; margin-top: 8px; }
+            QGroupBox::title { subcontrol-origin: margin; left: 12px; padding: 0 4px; color: #1f4f82; }
+            QPushButton { background: #2f6fed; color: white; border-radius: 6px; padding: 6px 10px; }
+            QPushButton:hover { background: #2458bc; }
+            QTextEdit { border: 1px solid #d0d7de; border-radius: 8px; background: #ffffff; }
+            """
+        )
 
     def closeEvent(self, event) -> None:
         self.timer.stop()
@@ -312,6 +322,7 @@ class LearningSystemWindow(QMainWindow):
         if self.capture is not None:
             self.capture.release()
         self.capture = cv2.VideoCapture(str(analysis["overlay_path"]))
+        self.rotation_fix_deg = self._detect_rotation_fix(self.capture)
         frame_count = int(self.capture.get(cv2.CAP_PROP_FRAME_COUNT))
         self.progress_slider.setMaximum(max(0, frame_count - 1))
         self.current_frame_index = 0
@@ -321,11 +332,16 @@ class LearningSystemWindow(QMainWindow):
     def play_video(self) -> None:
         if self.capture is None:
             return
+        if self.timer.isActive():
+            self.pause_video()
+            return
         fps = self.capture.get(cv2.CAP_PROP_FPS) or 20.0
+        self.play_toggle_button.setText("暂停")
         self.timer.start(max(1, int(1000 / (fps * self.playback_rate))))
 
     def pause_video(self) -> None:
         self.timer.stop()
+        self.play_toggle_button.setText("播放")
 
     def replay_video(self) -> None:
         if self.capture is None:
@@ -337,7 +353,8 @@ class LearningSystemWindow(QMainWindow):
     def _change_playback_rate(self, text: str) -> None:
         self.playback_rate = float(text.replace("x", ""))
         if self.timer.isActive():
-            self.play_video()
+            fps = self.capture.get(cv2.CAP_PROP_FPS) or 20.0 if self.capture is not None else 20.0
+            self.timer.start(max(1, int(1000 / (fps * self.playback_rate))))
 
     def seek_video(self) -> None:
         self._show_frame(self.progress_slider.value())
@@ -366,7 +383,7 @@ class LearningSystemWindow(QMainWindow):
         self.progress_slider.blockSignals(True)
         self.progress_slider.setValue(frame_index)
         self.progress_slider.blockSignals(False)
-        self._display_image(frame)
+        self._display_image(self._normalize_frame_orientation(frame))
         self._update_status_panel(frame_index)
         self._update_frame_feature_panel(frame_index)
 
@@ -376,6 +393,25 @@ class LearningSystemWindow(QMainWindow):
         image = QImage(rgb.data, w, h, ch * w, QImage.Format_RGB888)
         pixmap = QPixmap.fromImage(image).scaled(self.video_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
         self.video_label.setPixmap(pixmap)
+
+    def _detect_rotation_fix(self, capture: cv2.VideoCapture) -> float:
+        if hasattr(cv2, "CAP_PROP_ORIENTATION_META"):
+            try:
+                orientation = capture.get(cv2.CAP_PROP_ORIENTATION_META)
+                if orientation in {90.0, 180.0, 270.0}:
+                    return float(orientation)
+            except Exception:
+                return 0.0
+        return 0.0
+
+    def _normalize_frame_orientation(self, frame):
+        if self.rotation_fix_deg == 90.0:
+            return cv2.rotate(frame, cv2.ROTATE_90_CLOCKWISE)
+        if self.rotation_fix_deg == 180.0:
+            return cv2.rotate(frame, cv2.ROTATE_180)
+        if self.rotation_fix_deg == 270.0:
+            return cv2.rotate(frame, cv2.ROTATE_90_COUNTERCLOCKWISE)
+        return frame
 
     def _update_status_panel(self, frame_index: int) -> None:
         if self.current_sample is None:
