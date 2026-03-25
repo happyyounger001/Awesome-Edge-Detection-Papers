@@ -98,10 +98,11 @@ def render_learning_overlay_video(
 
 def draw_pose_overlay(frame, pose_sequence: PoseSequence, frame_index: int, assessment):
     canvas = frame.copy()
+    frame_h, frame_w = canvas.shape[:2]
     points: dict[str, tuple[int, int]] = {}
     for name in KEYPOINTS:
-        x = int(pose_sequence.arrays[name][frame_index, 0] * pose_sequence.width)
-        y = int(pose_sequence.arrays[name][frame_index, 1] * pose_sequence.height)
+        x = int(pose_sequence.arrays[name][frame_index, 0] * frame_w)
+        y = int(pose_sequence.arrays[name][frame_index, 1] * frame_h)
         points[name] = (x, y)
         cv2.circle(canvas, (x, y), 3 if "eye" in name or "ear" in name or name == "nose" else 4, (0, 255, 0), -1)
 
@@ -109,23 +110,22 @@ def draw_pose_overlay(frame, pose_sequence: PoseSequence, frame_index: int, asse
         cv2.line(canvas, points[start], points[end], (255, 215, 0), 2)
 
     warning_lines = [f"第 {assessment.current_lunge_index} 个弓步"]
-    warning_lines.append(f"状态：{assessment.current_text}")
     if assessment.show_thigh_warning:
         warning_lines.append("抬大腿预警")
     if assessment.show_order_warning:
         warning_lines.append("先脚后手预警")
     if assessment.show_head_tilt_warning:
         warning_lines.append("歪头提醒")
-    warning_lines.append(f"建议：{assessment.coaching_advice}")
     return _draw_chinese_labels(canvas, warning_lines)
 
 
 def draw_learning_overlay(frame, pose_sequence: PoseSequence, frame_index: int, stage: str):
     canvas = frame.copy()
+    frame_h, frame_w = canvas.shape[:2]
     points: dict[str, tuple[int, int]] = {}
     for name in KEYPOINTS:
-        x = int(pose_sequence.arrays[name][frame_index, 0] * pose_sequence.width)
-        y = int(pose_sequence.arrays[name][frame_index, 1] * pose_sequence.height)
+        x = int(pose_sequence.arrays[name][frame_index, 0] * frame_w)
+        y = int(pose_sequence.arrays[name][frame_index, 1] * frame_h)
         points[name] = (x, y)
         cv2.circle(canvas, (x, y), 3 if "eye" in name or "ear" in name or name == "nose" else 4, (0, 255, 0), -1)
     for start, end in SKELETON:

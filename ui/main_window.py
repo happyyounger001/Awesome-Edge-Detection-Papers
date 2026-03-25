@@ -71,6 +71,7 @@ class FencingMainWindow(QMainWindow):
         self.duration = 0.0
         self.playback_rate = 1.0
         self.rotation_fix_deg = 0.0
+        self.player_state = "IDLE"
 
         self.setWindowTitle("Fencing Lunge AI Trainer")
         self.resize(1640, 960)
@@ -259,6 +260,10 @@ class FencingMainWindow(QMainWindow):
         file_path, _ = QFileDialog.getOpenFileName(self, "选择训练视频", "", "Video Files (*.mp4 *.mov *.avi)")
         if not file_path:
             return
+        self.timer.stop()
+        self.is_playing = False
+        self.play_toggle_button.setText("播放")
+        self.player_state = "LOADING"
         self.video_path = Path(file_path)
         self.path_edit.setText(file_path)
         self.manual_go_time = None
@@ -286,20 +291,24 @@ class FencingMainWindow(QMainWindow):
 
         self.preview_sequence = self.preview_estimator.extract(self.video_path, progress_callback=update_progress)
         self.is_video_loading = False
+        self.player_state = "READY"
         self.play_toggle_button.setEnabled(True)
         self._show_progress("视频加载完成", 100, status="success")
         logger.info("Video loaded: %s frames, duration %.2fs", frame_count, self.duration)
         self._show_frame(0)
 
     def toggle_play(self) -> None:
-        if self.capture is None or self.is_video_loading:
+        if self.capture is None or self.is_video_loading or self.player_state == "LOADING":
             return
         if self.is_playing:
             self.pause()
             return
+        if self.player_state not in {"READY", "PAUSED", "ENDED"}:
+            return
         if self.current_frame >= self.progress_slider.maximum():
             self._show_frame(0)
         self.is_playing = True
+        self.player_state = "PLAYING"
         self.play_toggle_button.setText("暂停")
         self._restart_timer()
         logger.info("Playback started at frame=%s rate=%s", self.current_frame, self.playback_rate)
@@ -307,6 +316,8 @@ class FencingMainWindow(QMainWindow):
     def pause(self) -> None:
         self.timer.stop()
         self.is_playing = False
+        if self.player_state != "LOADING":
+            self.player_state = "PAUSED"
         self.play_toggle_button.setText("播放")
         logger.info("Playback paused at frame=%s", self.current_frame)
 
@@ -336,7 +347,7 @@ class FencingMainWindow(QMainWindow):
         self.pause()
 
     def seek_video(self) -> None:
-        if self.capture is None:
+        if self.capture is None or self.player_state == "LOADING":
             return
         frame_index = self.progress_slider.value()
         logger.info("Seek to frame=%s", frame_index)
@@ -348,6 +359,7 @@ class FencingMainWindow(QMainWindow):
         next_frame = self.current_frame + max(1, int(round(self.playback_rate)))
         if next_frame > self.progress_slider.maximum():
             self.pause()
+            self.player_state = "ENDED"
             self._show_frame(self.progress_slider.maximum())
             return
         self._show_frame(next_frame)
@@ -362,6 +374,7 @@ class FencingMainWindow(QMainWindow):
         if not ok:
             self.timer.stop()
             self.is_playing = False
+            self.player_state = "ENDED"
             self.play_toggle_button.setText("播放")
             return
         self.current_frame = frame_index
