@@ -384,6 +384,8 @@ class FencingMainWindow(QMainWindow):
             f"当前阶段：{phase_cn}",
             f"当前弓步：第 {assessment.current_lunge_index} 个",
             f"已完成：{assessment.completed_lunge_count} 个",
+            f"提醒：{assessment.top_issue}",
+            f"建议：{assessment.coaching_advice}",
         ]
         self._display_layers(normalized, pose_layer, status_lines)
         self._update_realtime_panel(assessment)
