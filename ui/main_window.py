@@ -34,7 +34,7 @@ from ui.learning_window import LearningSystemWindow
 from ui.dialogs.settings_dialog import SettingsDialog
 from ui.progress_dialog import ProgressDialog
 from ui.report_window import ReportWindow
-from ui.video_overlay import draw_pose_layer
+from ui.video_overlay import draw_pose_layer, draw_pose_overlay
 from ui.video_panel import VideoPanel
 
 logger = logging.getLogger(__name__)
@@ -414,6 +414,7 @@ class FencingMainWindow(QMainWindow):
                     ["当前阶段：分析中", "提醒：后台分析尚未完成", "建议：继续播放，结果将自动更新"],
                 )
             assessment = self.preview_evaluation.frame_assessments[min(frame_index, len(self.preview_evaluation.frame_assessments) - 1)]
+        composed = draw_pose_overlay(normalized, self.preview_sequence, frame_index, assessment, include_status_text=False)
         pose_layer = draw_pose_layer(self.preview_sequence, frame_index, normalized.shape)
         phase_cn = self._phase_label(assessment.lunge_state)
         status_lines = [
@@ -421,7 +422,7 @@ class FencingMainWindow(QMainWindow):
             f"提示：{assessment.top_issue or '注意稳定'}",
             f"建议：{assessment.coaching_advice or '继续向前'}",
         ]
-        self._display_layers(normalized, pose_layer, status_lines)
+        self._display_layers(composed, pose_layer * 0, status_lines)
         self._update_realtime_panel(assessment)
         self._update_algorithm_panel(assessment)
 
