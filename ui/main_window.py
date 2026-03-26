@@ -196,6 +196,18 @@ class FencingMainWindow(QMainWindow):
         return labels
 
     def _phase_label(self, phase_key: str) -> str:
+        simple = {
+            "READY": "准备",
+            "IDLE": "准备",
+            "STARTED": "出击",
+            "EXTENDING": "出击",
+            "HOLD": "出击",
+            "RETURN": "收回",
+            "RECOVERING": "收回",
+            "COMPLETED_LOCK": "收回",
+        }
+        if phase_key in simple:
+            return simple[phase_key]
         return self.phase_label_map.get(phase_key, phase_key)
 
     def _update_realtime_placeholder(self) -> None:
@@ -396,10 +408,8 @@ class FencingMainWindow(QMainWindow):
         phase_cn = self._phase_label(assessment.lunge_state)
         status_lines = [
             f"当前阶段：{phase_cn}",
-            f"当前弓步：第 {assessment.current_lunge_index} 个",
-            f"已完成：{assessment.completed_lunge_count} 个",
-            f"提醒：{assessment.top_issue}",
-            f"建议：{assessment.coaching_advice}",
+            f"提示：{assessment.top_issue or '注意稳定'}",
+            f"建议：{assessment.coaching_advice or '继续向前'}",
         ]
         self._display_layers(normalized, pose_layer, status_lines)
         self._update_realtime_panel(assessment)

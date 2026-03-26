@@ -88,108 +88,47 @@ def _compute_lunge_state_machine(
         return np.zeros(0, dtype=int), np.zeros(0, dtype=int), [], 0
 
     velocity = np.gradient(stride_distance)
-    baseline = float(np.median(stride_distance[: max(3, min(len(stride_distance), 10))]))
+    baseline = float(np.median(stride_distance[: max(5, min(len(stride_distance), 20))]))
     peak = float(np.max(stride_distance))
     amplitude = max(peak - baseline, 1e-6)
-    prepare_thr = baseline + max(0.01, amplitude * float(getattr(sequence_config, "lunge_prepare_ratio", 0.12)))
-    start_thr = baseline + max(0.03, amplitude * float(getattr(sequence_config, "lunge_start_ratio", 0.28)))
-    reach_thr = baseline + max(0.05, amplitude * float(getattr(sequence_config, "lunge_reach_ratio", 0.72)))
-    return_thr = baseline + max(0.015, amplitude * float(getattr(sequence_config, "lunge_return_ratio", 0.10)))
-    rearm_thr = baseline + max(0.012, amplitude * float(getattr(sequence_config, "lunge_rearm_ratio", 0.07)))
-    min_gap_frames = max(1, int(round(fps * float(getattr(sequence_config, "lunge_min_gap_sec", 0.25)))))
-    hold_frames_required = max(1, int(round(fps * float(getattr(sequence_config, "lunge_hold_sec", 0.12)))))
-    leg_out_thr = max(0.012, float(np.percentile(np.abs(leg_extension_signed), 75)) * 0.6)
-    arm_extend_thr = max(0.010, float(np.percentile(np.abs(arm_extension_signed), 75)) * 0.6)
-    ready_leg_thr = leg_out_thr * 0.35
-    ready_arm_thr = arm_extend_thr * 0.35
-
+    start_thr = baseline + max(0.02, amplitude * 0.30)
+    reach_thr = baseline + max(0.05, amplitude * 0.70)
+    return_thr = baseline + max(0.01, amplitude * 0.15)
+    min_gap_frames = max(1, int(round(fps * 0.20)))
     current_numbers = np.zeros(len(stride_distance), dtype=int)
     completed_numbers = np.zeros(len(stride_distance), dtype=int)
     states: list[str] = []
     state = "READY"
     completed = 0
-    current = 1 if peak > start_thr else 0
-    hold_frames = 0
-    lunge_start_frame: int | None = None
+    current = 1
+    started = False
+    reached = False
     last_completion_frame = -min_gap_frames
-    leg_confirm_frames = 0
-    arm_confirm_frames = 0
-    reached_frame: int | None = None
-    recovering_frames = 0
 
-    for i, (stride, speed, leg_delta, arm_delta) in enumerate(zip(stride_distance, velocity, leg_extension_signed, arm_extension_signed)):
+    for i, (stride, speed, _leg_delta, _arm_delta) in enumerate(zip(stride_distance, velocity, leg_extension_signed, arm_extension_signed)):
         previous_state = state
-        leg_out = leg_delta >= leg_out_thr
-        arm_out = arm_delta >= arm_extend_thr
-        backstep_motion = leg_delta < -ready_leg_thr
-        if state == "READY":
-            current = max(completed + 1, 1) if peak > start_thr else max(completed, 1)
-            leg_confirm_frames = 0
-            arm_confirm_frames = 0
-            if i - last_completion_frame < min_gap_frames:
-                state = "READY"
-            elif stride >= prepare_thr and speed >= 0 and leg_out and not backstep_motion:
-                state = "STARTED"
-                lunge_start_frame = i
-        elif state == "STARTED":
-            current = completed + 1
-            leg_confirm_frames = leg_confirm_frames + 1 if leg_out else 0
-            arm_confirm_frames = arm_confirm_frames + 1 if arm_out else 0
-            if backstep_motion:
-                state = "ABORTED"
-                lunge_start_frame = None
-            elif stride >= start_thr and speed >= 0 and leg_confirm_frames >= 2:
-                state = "EXTENDING"
-            elif stride < prepare_thr * 0.9:
-                state = "READY"
-                lunge_start_frame = None
-            elif lunge_start_frame is not None and i - lunge_start_frame > int(fps * float(getattr(sequence_config, "lunge_started_timeout_sec", 0.9))):
-                state = "ABORTED"
-        elif state == "EXTENDING":
-            current = completed + 1
-            if backstep_motion:
-                state = "ABORTED"
-                lunge_start_frame = None
-            elif stride >= reach_thr and leg_out and arm_out:
-                hold_frames += 1
-                if hold_frames >= hold_frames_required:
-                    state = "HOLD"
-                    reached_frame = i
-            elif lunge_start_frame is not None and i - lunge_start_frame > int(fps * float(getattr(sequence_config, "lunge_extending_timeout_sec", 1.2))):
-                state = "ABORTED"
-        elif state == "HOLD":
-            current = completed + 1
-            if speed < 0 or stride < reach_thr * 0.95:
-                state = "RETURN"
-                recovering_frames = 0
-            elif lunge_start_frame is not None and i - lunge_start_frame > int(fps * float(getattr(sequence_config, "lunge_hold_timeout_sec", 1.6))):
-                state = "ABORTED"
-        elif state == "RETURN":
-            current = completed + 1
-            recovering_frames += 1
-            back_to_ready = abs(leg_delta) <= ready_leg_thr and abs(arm_delta) <= ready_arm_thr
-            stable_recover = recovering_frames >= 2 and back_to_ready and stride <= return_thr
-            if stable_recover and reached_frame is not None and i - last_completion_frame >= min_gap_frames:
-                completed += 1
-                last_completion_frame = i
-                state = "COMPLETED_LOCK"
-                lunge_start_frame = None
-                hold_frames = 0
-                recovering_frames = 0
-                logger.debug("Lunge completed at frame %s -> completed=%s", i, completed)
-            elif lunge_start_frame is not None and i - lunge_start_frame > int(fps * float(getattr(sequence_config, "lunge_recover_timeout_sec", 2.2))):
-                state = "ABORTED"
-        elif state == "COMPLETED_LOCK":
-            current = max(completed, 1)
-            if stride <= rearm_thr and abs(speed) <= np.percentile(np.abs(velocity), 60):
-                state = "READY"
-                reached_frame = None
-        elif state == "ABORTED":
-            current = max(completed + 1, 1)
-            if stride <= rearm_thr and abs(speed) <= np.percentile(np.abs(velocity), 60):
-                state = "READY"
-                lunge_start_frame = None
-                reached_frame = None
+        current = completed + 1
+
+        if not started and stride >= start_thr and speed > 0 and i - last_completion_frame >= min_gap_frames:
+            started = True
+            reached = False
+            state = "STARTED"
+        elif started and not reached and stride >= reach_thr:
+            reached = True
+            state = "HOLD"
+        elif started and reached and stride <= return_thr and speed <= 0:
+            completed += 1
+            last_completion_frame = i
+            started = False
+            reached = False
+            state = "READY"
+            logger.debug("Lunge completed at frame %s -> completed=%s", i, completed)
+        elif started and not reached:
+            state = "EXTENDING"
+        elif started and reached:
+            state = "RETURN"
+        else:
+            state = "READY"
 
         if previous_state != state:
             logger.debug("Lunge state transition at frame %s: %s -> %s", i, previous_state, state)

@@ -17,12 +17,13 @@ class VideoPanel(QWidget):
         self.pose_layer = QLabel("")
         self.pose_layer.setAlignment(Qt.AlignCenter)
         self.pose_layer.setAttribute(Qt.WA_TransparentForMouseEvents, True)
+        self.pose_layer.setStyleSheet("background: transparent;")
 
         self.status_overlay_layer = QLabel("")
         self.status_overlay_layer.setAlignment(Qt.AlignLeft | Qt.AlignTop)
         self.status_overlay_layer.setAttribute(Qt.WA_TransparentForMouseEvents, True)
         self.status_overlay_layer.setStyleSheet(
-            "color:#ffffff;background:rgba(0,0,0,120);padding:8px;border-radius:6px;font-size:14px;"
+            "background: transparent; color:#ffffff; font-size:14px; padding:6px;"
         )
 
         stack = QStackedLayout(self)
