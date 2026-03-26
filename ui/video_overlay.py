@@ -96,18 +96,26 @@ def render_learning_overlay_video(
     return overlay_path
 
 
-def draw_pose_overlay(frame, pose_sequence: PoseSequence, frame_index: int, assessment):
-    canvas = frame.copy()
-    frame_h, frame_w = canvas.shape[:2]
+def draw_pose_layer(pose_sequence: PoseSequence, frame_index: int, frame_shape: tuple[int, int, int]) -> np.ndarray:
+    frame_h, frame_w = frame_shape[:2]
+    layer = np.zeros((frame_h, frame_w, 4), dtype=np.uint8)
     points: dict[str, tuple[int, int]] = {}
     for name in KEYPOINTS:
         x = int(pose_sequence.arrays[name][frame_index, 0] * frame_w)
         y = int(pose_sequence.arrays[name][frame_index, 1] * frame_h)
         points[name] = (x, y)
-        cv2.circle(canvas, (x, y), 3 if "eye" in name or "ear" in name or name == "nose" else 4, (0, 255, 0), -1)
-
+        cv2.circle(layer, (x, y), 3 if "eye" in name or "ear" in name or name == "nose" else 4, (0, 255, 0, 255), -1)
     for start, end in SKELETON:
-        cv2.line(canvas, points[start], points[end], (255, 215, 0), 2)
+        cv2.line(layer, points[start], points[end], (255, 215, 0, 220), 2)
+    return layer
+
+
+def draw_pose_overlay(frame, pose_sequence: PoseSequence, frame_index: int, assessment, include_status_text: bool = True):
+    canvas = frame.copy()
+    pose_layer = draw_pose_layer(pose_sequence, frame_index, canvas.shape)
+    bgr_overlay = cv2.cvtColor(pose_layer, cv2.COLOR_BGRA2BGR)
+    alpha = pose_layer[:, :, 3:4].astype(np.float32) / 255.0
+    canvas = (canvas * (1.0 - alpha) + bgr_overlay * alpha).astype(np.uint8)
 
     warning_lines = [f"第 {assessment.current_lunge_index} 个弓步"]
     if assessment.show_thigh_warning:
@@ -116,7 +124,9 @@ def draw_pose_overlay(frame, pose_sequence: PoseSequence, frame_index: int, asse
         warning_lines.append("先脚后手预警")
     if assessment.show_head_tilt_warning:
         warning_lines.append("歪头提醒")
-    return _draw_chinese_labels(canvas, warning_lines)
+    if include_status_text:
+        return _draw_chinese_labels(canvas, warning_lines)
+    return canvas
 
 
 def draw_learning_overlay(frame, pose_sequence: PoseSequence, frame_index: int, stage: str):

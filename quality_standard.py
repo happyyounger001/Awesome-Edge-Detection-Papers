@@ -33,12 +33,19 @@ def save_quality_standard(path: str | Path, data: dict[str, Any]) -> Path:
 
 def apply_standard_to_config(config: "AppConfig", standard: dict[str, Any]) -> "AppConfig":
     thresholds = standard.get("thresholds", {})
+    stage_rules = standard.get("stage_rules", {})
     config.stability_seconds_threshold = float(thresholds.get("stability_window_sec", config.stability_seconds_threshold))
     config.head_tilt_angle_threshold = float(thresholds.get("head_tilt_deg_thr", config.head_tilt_angle_threshold))
     config.thigh_raise_angle_threshold = float(thresholds.get("hip_knee_ground_angle_thr", config.thigh_raise_angle_threshold))
     config.upper_body_motion_threshold = float(
-        standard.get("stage_rules", {}).get("hold", {}).get("shoulder_stability_std_p90", config.upper_body_motion_threshold)
+        stage_rules.get("hold", {}).get("shoulder_stability_std_p90", config.upper_body_motion_threshold)
     )
+    config.lunge_min_gap_sec = float(stage_rules.get("cycle", {}).get("min_gap_sec", config.lunge_min_gap_sec))
+    config.lunge_hold_sec = float(stage_rules.get("hold", {}).get("stable_hold_duration_p75", config.lunge_hold_sec))
+    config.lunge_started_timeout_sec = float(stage_rules.get("cycle", {}).get("started_timeout_sec", config.lunge_started_timeout_sec))
+    config.lunge_extending_timeout_sec = float(stage_rules.get("cycle", {}).get("extending_timeout_sec", config.lunge_extending_timeout_sec))
+    config.lunge_hold_timeout_sec = float(stage_rules.get("cycle", {}).get("hold_timeout_sec", config.lunge_hold_timeout_sec))
+    config.lunge_recover_timeout_sec = float(stage_rules.get("cycle", {}).get("recover_timeout_sec", config.lunge_recover_timeout_sec))
     return config
 
 

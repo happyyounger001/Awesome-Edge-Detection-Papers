@@ -91,13 +91,13 @@ def _compute_lunge_state_machine(
     baseline = float(np.median(stride_distance[: max(3, min(len(stride_distance), 10))]))
     peak = float(np.max(stride_distance))
     amplitude = max(peak - baseline, 1e-6)
-    prepare_thr = baseline + max(0.01, amplitude * 0.12)
-    start_thr = baseline + max(0.03, amplitude * 0.28)
-    reach_thr = baseline + max(0.05, amplitude * 0.72)
-    return_thr = baseline + max(0.015, amplitude * 0.10)
-    rearm_thr = baseline + max(0.012, amplitude * 0.07)
-    min_gap_frames = max(1, int(round(fps * 0.25)))
-    hold_frames_required = max(1, int(round(fps * 0.12)))
+    prepare_thr = baseline + max(0.01, amplitude * float(getattr(sequence_config, "lunge_prepare_ratio", 0.12)))
+    start_thr = baseline + max(0.03, amplitude * float(getattr(sequence_config, "lunge_start_ratio", 0.28)))
+    reach_thr = baseline + max(0.05, amplitude * float(getattr(sequence_config, "lunge_reach_ratio", 0.72)))
+    return_thr = baseline + max(0.015, amplitude * float(getattr(sequence_config, "lunge_return_ratio", 0.10)))
+    rearm_thr = baseline + max(0.012, amplitude * float(getattr(sequence_config, "lunge_rearm_ratio", 0.07)))
+    min_gap_frames = max(1, int(round(fps * float(getattr(sequence_config, "lunge_min_gap_sec", 0.25)))))
+    hold_frames_required = max(1, int(round(fps * float(getattr(sequence_config, "lunge_hold_sec", 0.12)))))
     leg_out_thr = max(0.012, float(np.percentile(np.abs(leg_extension_signed), 75)) * 0.6)
     arm_extend_thr = max(0.010, float(np.percentile(np.abs(arm_extension_signed), 75)) * 0.6)
     ready_leg_thr = leg_out_thr * 0.35
@@ -143,7 +143,7 @@ def _compute_lunge_state_machine(
             elif stride < prepare_thr * 0.9:
                 state = "READY"
                 lunge_start_frame = None
-            elif lunge_start_frame is not None and i - lunge_start_frame > int(fps * 0.9):
+            elif lunge_start_frame is not None and i - lunge_start_frame > int(fps * float(getattr(sequence_config, "lunge_started_timeout_sec", 0.9))):
                 state = "ABORTED"
         elif state == "EXTENDING":
             current = completed + 1
@@ -155,14 +155,14 @@ def _compute_lunge_state_machine(
                 if hold_frames >= hold_frames_required:
                     state = "HOLD"
                     reached_frame = i
-            elif lunge_start_frame is not None and i - lunge_start_frame > int(fps * 1.2):
+            elif lunge_start_frame is not None and i - lunge_start_frame > int(fps * float(getattr(sequence_config, "lunge_extending_timeout_sec", 1.2))):
                 state = "ABORTED"
         elif state == "HOLD":
             current = completed + 1
             if speed < 0 or stride < reach_thr * 0.95:
                 state = "RETURN"
                 recovering_frames = 0
-            elif lunge_start_frame is not None and i - lunge_start_frame > int(fps * 1.6):
+            elif lunge_start_frame is not None and i - lunge_start_frame > int(fps * float(getattr(sequence_config, "lunge_hold_timeout_sec", 1.6))):
                 state = "ABORTED"
         elif state == "RETURN":
             current = completed + 1
@@ -177,7 +177,7 @@ def _compute_lunge_state_machine(
                 hold_frames = 0
                 recovering_frames = 0
                 logger.debug("Lunge completed at frame %s -> completed=%s", i, completed)
-            elif lunge_start_frame is not None and i - lunge_start_frame > int(fps * 2.2):
+            elif lunge_start_frame is not None and i - lunge_start_frame > int(fps * float(getattr(sequence_config, "lunge_recover_timeout_sec", 2.2))):
                 state = "ABORTED"
         elif state == "COMPLETED_LOCK":
             current = max(completed, 1)

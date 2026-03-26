@@ -22,6 +22,17 @@ class AppConfig:
     preview_width: int = 960
     preview_height: int = 540
     standard_path: str = "standards/quality_standard_u6_foil_v1.json"
+    lunge_prepare_ratio: float = 0.12
+    lunge_start_ratio: float = 0.28
+    lunge_reach_ratio: float = 0.72
+    lunge_return_ratio: float = 0.10
+    lunge_rearm_ratio: float = 0.07
+    lunge_min_gap_sec: float = 0.25
+    lunge_hold_sec: float = 0.12
+    lunge_started_timeout_sec: float = 0.9
+    lunge_extending_timeout_sec: float = 1.2
+    lunge_hold_timeout_sec: float = 1.6
+    lunge_recover_timeout_sec: float = 2.2
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

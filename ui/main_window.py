@@ -5,7 +5,6 @@ from pathlib import Path
 
 import cv2
 from PySide6.QtCore import QCoreApplication, QTimer, Qt
-from PySide6.QtGui import QImage, QPixmap
 from PySide6.QtWidgets import (
     QComboBox,
     QFileDialog,
@@ -33,7 +32,8 @@ from ui.learning_window import LearningSystemWindow
 from ui.dialogs.settings_dialog import SettingsDialog
 from ui.progress_dialog import ProgressDialog
 from ui.report_window import ReportWindow
-from ui.video_overlay import draw_pose_overlay
+from ui.video_overlay import draw_pose_layer
+from ui.video_panel import VideoPanel
 
 logger = logging.getLogger(__name__)
 
@@ -101,10 +101,8 @@ class FencingMainWindow(QMainWindow):
 
         playback_group = QGroupBox("2️⃣ 视频播放区")
         playback_layout = QVBoxLayout(playback_group)
-        self.video_label = QLabel("请先导入视频")
-        self.video_label.setAlignment(Qt.AlignCenter)
-        self.video_label.setMinimumSize(int(self.config.preview_width * 0.8), int(self.config.preview_height * 0.8))
-        self.video_label.setStyleSheet("background:#111;color:#fff;border-radius:8px;")
+        self.video_panel_widget = VideoPanel()
+        self.video_panel_widget.setMinimumSize(int(self.config.preview_width * 0.85), int(self.config.preview_height * 0.85))
         playback_controls = QHBoxLayout()
         self.play_toggle_button = QPushButton("播放")
         self.play_toggle_button.clicked.connect(self.toggle_play)
@@ -122,7 +120,7 @@ class FencingMainWindow(QMainWindow):
         playback_controls.addWidget(QLabel("倍速"))
         playback_controls.addWidget(self.rate_combo)
         playback_controls.addWidget(self.progress_slider)
-        playback_layout.addWidget(self.video_label)
+        playback_layout.addWidget(self.video_panel_widget)
         playback_layout.addLayout(playback_controls)
 
         realtime_group = QGroupBox("3️⃣ 实时分析区")
@@ -168,7 +166,7 @@ class FencingMainWindow(QMainWindow):
             """
             QGroupBox { font-weight: 600; border: 1px solid #d0d7de; border-radius: 8px; margin-top: 8px; }
             QGroupBox::title { subcontrol-origin: margin; left: 12px; padding: 0 4px; color: #1f4f82; }
-            QPushButton { background: #2f6fed; color: white; border-radius: 6px; padding: 6px 10px; }
+            QPushButton { background: #2f6fed; color: white; border-radius: 6px; padding: 3px 8px; min-height: 24px; font-size: 12px; }
             QPushButton:hover { background: #2458bc; }
             QTextEdit { border: 1px solid #d0d7de; border-radius: 8px; background: #ffffff; }
             """
@@ -380,19 +378,19 @@ class FencingMainWindow(QMainWindow):
             if self.preview_evaluation is None:
                 self.preview_evaluation = evaluate_sequence(self.preview_sequence, self.config, self.manual_go_time)
             assessment = self.preview_evaluation.frame_assessments[min(frame_index, len(self.preview_evaluation.frame_assessments) - 1)]
-        annotated = draw_pose_overlay(normalized, self.preview_sequence, frame_index, assessment)
-        self._display_image(annotated)
+        pose_layer = draw_pose_layer(self.preview_sequence, frame_index, normalized.shape)
+        phase_cn = self._phase_label(assessment.lunge_state)
+        status_lines = [
+            f"当前阶段：{phase_cn}",
+            f"当前弓步：第 {assessment.current_lunge_index} 个",
+            f"已完成：{assessment.completed_lunge_count} 个",
+        ]
+        self._display_layers(normalized, pose_layer, status_lines)
         self._update_realtime_panel(assessment)
         self._update_algorithm_panel(assessment)
 
-    def _display_image(self, frame) -> None:
-        rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        h, w, ch = rgb.shape
-        image = QImage(rgb.data, w, h, ch * w, QImage.Format_RGB888)
-        pixmap = QPixmap.fromImage(image).scaled(
-            self.video_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation
-        )
-        self.video_label.setPixmap(pixmap)
+    def _display_layers(self, video_frame, pose_layer, status_lines: list[str]) -> None:
+        self.video_panel_widget.update_layers(video_frame, pose_layer, status_lines)
 
     def _update_realtime_panel(self, assessment) -> None:
         is_good = assessment.current_text == "很棒，得分！"
@@ -477,6 +475,9 @@ class FencingMainWindow(QMainWindow):
     def run_analysis(self) -> None:
         if self.video_path is None:
             QMessageBox.warning(self, "提示", "请先导入视频。")
+            return
+        if not isinstance(self.quality_standard, dict):
+            QMessageBox.warning(self, "提示", "当前学习标准未加载完成，无法启动正式分析。")
             return
         self.analyze_button.setEnabled(False)
         output_dir = Path("outputs") / self.video_path.stem
