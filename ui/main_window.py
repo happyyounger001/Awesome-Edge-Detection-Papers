@@ -408,13 +408,21 @@ class FencingMainWindow(QMainWindow):
                 self.preview_evaluation = self.preview_eval_future.result()
             if self.preview_evaluation is None:
                 self.status_label.setText("状态：后台分析中（播放不受阻塞）")
+                pose_preview = draw_pose_layer(self.preview_sequence, frame_index, frame.shape)
+                composed_preview = draw_pose_overlay(frame, self.preview_sequence, frame_index, type("A", (), {
+                    "current_lunge_index": 0,
+                    "show_thigh_warning": False,
+                    "show_order_warning": False,
+                    "show_head_tilt_warning": False,
+                })(), include_status_text=False)
                 return self._display_layers(
-                    normalized,
-                    draw_pose_layer(self.preview_sequence, frame_index, normalized.shape),
+                    self._normalize_frame_orientation(composed_preview),
+                    pose_preview * 0,
                     ["当前阶段：分析中", "提醒：后台分析尚未完成", "建议：继续播放，结果将自动更新"],
                 )
             assessment = self.preview_evaluation.frame_assessments[min(frame_index, len(self.preview_evaluation.frame_assessments) - 1)]
-        composed = draw_pose_overlay(normalized, self.preview_sequence, frame_index, assessment, include_status_text=False)
+        composed = draw_pose_overlay(frame, self.preview_sequence, frame_index, assessment, include_status_text=False)
+        composed = self._normalize_frame_orientation(composed)
         pose_layer = draw_pose_layer(self.preview_sequence, frame_index, normalized.shape)
         phase_cn = self._phase_label(assessment.lunge_state)
         status_lines = [
