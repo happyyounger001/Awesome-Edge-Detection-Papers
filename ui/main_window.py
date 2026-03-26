@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from concurrent.futures import Future, ThreadPoolExecutor
 from pathlib import Path
 
 import cv2
@@ -63,6 +64,8 @@ class FencingMainWindow(QMainWindow):
         self.progress_dialog: ProgressDialog | None = None
         self.settings_dialog: SettingsDialog | None = None
         self.preview_evaluation = None
+        self.preview_eval_future: Future | None = None
+        self.bg_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="preview-eval")
         self.phase_label_map = self._build_phase_label_map()
 
         self.is_video_loading = False
@@ -84,6 +87,7 @@ class FencingMainWindow(QMainWindow):
             self.capture.release()
         self.engine.close()
         self.preview_estimator.close()
+        self.bg_executor.shutdown(wait=False, cancel_futures=True)
         super().closeEvent(event)
 
     def _build_ui(self) -> None:
@@ -254,6 +258,7 @@ class FencingMainWindow(QMainWindow):
         self.manual_go_time = None
         self.analysis_result = None
         self.preview_evaluation = None
+        self.preview_eval_future = None
         self._open_video()
         self.status_label.setText("状态：已导入视频，可播放或开始分析")
 
@@ -276,7 +281,9 @@ class FencingMainWindow(QMainWindow):
             self._show_progress("视频加载中", percent)
 
         self.preview_sequence = self.preview_estimator.extract(self.video_path, progress_callback=update_progress)
-        self.preview_evaluation = evaluate_sequence(self.preview_sequence, self.config, self.manual_go_time)
+        self.preview_eval_future = self.bg_executor.submit(
+            evaluate_sequence, self.preview_sequence, self.config, self.manual_go_time
+        )
         self.is_video_loading = False
         self.player_state = "READY"
         self.play_toggle_button.setEnabled(True)
@@ -375,8 +382,15 @@ class FencingMainWindow(QMainWindow):
         if self.analysis_result is not None and self.analysis_result.frame_assessments:
             assessment = self.analysis_result.frame_assessments[min(frame_index, len(self.analysis_result.frame_assessments) - 1)]
         else:
+            if self.preview_evaluation is None and self.preview_eval_future is not None and self.preview_eval_future.done():
+                self.preview_evaluation = self.preview_eval_future.result()
             if self.preview_evaluation is None:
-                self.preview_evaluation = evaluate_sequence(self.preview_sequence, self.config, self.manual_go_time)
+                self.status_label.setText("状态：后台分析中（播放不受阻塞）")
+                return self._display_layers(
+                    normalized,
+                    draw_pose_layer(self.preview_sequence, frame_index, normalized.shape),
+                    ["当前阶段：分析中", "提醒：后台分析尚未完成", "建议：继续播放，结果将自动更新"],
+                )
             assessment = self.preview_evaluation.frame_assessments[min(frame_index, len(self.preview_evaluation.frame_assessments) - 1)]
         pose_layer = draw_pose_layer(self.preview_sequence, frame_index, normalized.shape)
         phase_cn = self._phase_label(assessment.lunge_state)
@@ -494,6 +508,14 @@ class FencingMainWindow(QMainWindow):
         self._show_progress("分析完成", 100, status="success")
         self.analyze_button.setEnabled(True)
         last_assessment = self.analysis_result.frame_assessments[-1]
+        transitions: list[str] = []
+        prev_state: str | None = None
+        for fa in self.analysis_result.frame_assessments:
+            if fa.lunge_state != prev_state:
+                transitions.append(f"{fa.frame_index}:{fa.lunge_state}")
+                prev_state = fa.lunge_state
+        logger.info("Phase/state transitions: %s", " -> ".join(transitions[:30]))
+        logger.info("Completed lunge count: %s", last_assessment.completed_lunge_count)
         self.status_label.setText(
             f"状态：分析完成，当前第 {last_assessment.current_lunge_index} 个弓步，已完成 {last_assessment.completed_lunge_count} 个，报告已生成：{self.analysis_result.report_html}"
         )
