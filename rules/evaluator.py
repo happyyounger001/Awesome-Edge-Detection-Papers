@@ -91,12 +91,13 @@ def _compute_lunge_state_machine(
     baseline = float(np.median(stride_distance[: max(3, min(len(stride_distance), 10))]))
     peak = float(np.max(stride_distance))
     amplitude = max(peak - baseline, 1e-6)
-    prepare_thr = baseline + max(0.01, amplitude * 0.10)
-    start_thr = baseline + max(0.03, amplitude * 0.25)
-    hold_thr = baseline + max(0.04, amplitude * 0.70)
-    return_thr = baseline + max(0.015, amplitude * 0.08)
-    min_gap_frames = max(1, int(round(fps * 0.30)))
-    hold_frames_required = max(1, int(round(fps * 0.10)))
+    prepare_thr = baseline + max(0.01, amplitude * 0.12)
+    start_thr = baseline + max(0.03, amplitude * 0.28)
+    reach_thr = baseline + max(0.05, amplitude * 0.72)
+    return_thr = baseline + max(0.015, amplitude * 0.10)
+    rearm_thr = baseline + max(0.012, amplitude * 0.07)
+    min_gap_frames = max(1, int(round(fps * 0.25)))
+    hold_frames_required = max(1, int(round(fps * 0.12)))
     leg_out_thr = max(0.012, float(np.percentile(np.abs(leg_extension_signed), 75)) * 0.6)
     arm_extend_thr = max(0.010, float(np.percentile(np.abs(arm_extension_signed), 75)) * 0.6)
     ready_leg_thr = leg_out_thr * 0.35
@@ -105,98 +106,90 @@ def _compute_lunge_state_machine(
     current_numbers = np.zeros(len(stride_distance), dtype=int)
     completed_numbers = np.zeros(len(stride_distance), dtype=int)
     states: list[str] = []
-    state = "IDLE"
+    state = "READY"
     completed = 0
     current = 1 if peak > start_thr else 0
     hold_frames = 0
     lunge_start_frame: int | None = None
     last_completion_frame = -min_gap_frames
-    arm_extended = False
     leg_confirm_frames = 0
     arm_confirm_frames = 0
+    reached_frame: int | None = None
+    recovering_frames = 0
 
     for i, (stride, speed, leg_delta, arm_delta) in enumerate(zip(stride_distance, velocity, leg_extension_signed, arm_extension_signed)):
         previous_state = state
         leg_out = leg_delta >= leg_out_thr
         arm_out = arm_delta >= arm_extend_thr
         backstep_motion = leg_delta < -ready_leg_thr
-        if state == "IDLE":
+        if state == "READY":
             current = max(completed + 1, 1) if peak > start_thr else max(completed, 1)
-            hold_frames = 0
             leg_confirm_frames = 0
             arm_confirm_frames = 0
-            arm_extended = False
             if i - last_completion_frame < min_gap_frames:
-                state = "IDLE"
+                state = "READY"
             elif stride >= prepare_thr and speed >= 0 and leg_out and not backstep_motion:
-                state = "PREPARE"
+                state = "STARTED"
                 lunge_start_frame = i
-        elif state == "PREPARE":
+        elif state == "STARTED":
             current = completed + 1
             leg_confirm_frames = leg_confirm_frames + 1 if leg_out else 0
             arm_confirm_frames = arm_confirm_frames + 1 if arm_out else 0
-            arm_extended = arm_extended or arm_out
             if backstep_motion:
-                state = "IDLE"
+                state = "ABORTED"
                 lunge_start_frame = None
-                arm_extended = False
             elif stride >= start_thr and speed >= 0 and leg_confirm_frames >= 2:
-                state = "LEG_OUT"
-            elif stride < prepare_thr:
-                state = "IDLE"
+                state = "EXTENDING"
+            elif stride < prepare_thr * 0.9:
+                state = "READY"
                 lunge_start_frame = None
-                arm_extended = False
-        elif state == "LEG_OUT":
+            elif lunge_start_frame is not None and i - lunge_start_frame > int(fps * 0.9):
+                state = "ABORTED"
+        elif state == "EXTENDING":
             current = completed + 1
-            arm_confirm_frames = arm_confirm_frames + 1 if arm_out else 0
-            arm_extended = arm_extended or arm_out
             if backstep_motion:
-                state = "IDLE"
+                state = "ABORTED"
                 lunge_start_frame = None
-                arm_extended = False
-            elif arm_confirm_frames >= 2 and arm_extended:
-                state = "ARM_EXTEND"
-            elif stride < prepare_thr:
-                state = "IDLE"
-                lunge_start_frame = None
-                arm_extended = False
-        elif state == "ARM_EXTEND":
-            current = completed + 1
-            if leg_out and arm_out and stride >= start_thr:
-                state = "LUNGE_ACTIVE"
-            elif stride < prepare_thr or backstep_motion:
-                state = "IDLE"
-                lunge_start_frame = None
-                arm_extended = False
-        elif state == "LUNGE_ACTIVE":
-            current = completed + 1
-            if stride >= hold_thr and leg_out and arm_out:
+            elif stride >= reach_thr and leg_out and arm_out:
                 hold_frames += 1
                 if hold_frames >= hold_frames_required:
                     state = "HOLD"
-            else:
-                hold_frames = 0
-            if speed < 0 and (stride < hold_thr or (not leg_out and not arm_out)):
-                state = "RETURN"
+                    reached_frame = i
+            elif lunge_start_frame is not None and i - lunge_start_frame > int(fps * 1.2):
+                state = "ABORTED"
         elif state == "HOLD":
             current = completed + 1
-            if speed < 0:
+            if speed < 0 or stride < reach_thr * 0.95:
                 state = "RETURN"
-            elif stride < start_thr:
-                state = "PREPARE"
+                recovering_frames = 0
+            elif lunge_start_frame is not None and i - lunge_start_frame > int(fps * 1.6):
+                state = "ABORTED"
         elif state == "RETURN":
             current = completed + 1
+            recovering_frames += 1
             back_to_ready = abs(leg_delta) <= ready_leg_thr and abs(arm_delta) <= ready_arm_thr
-            if back_to_ready and stride <= return_thr and (lunge_start_frame is None or i - lunge_start_frame >= min_gap_frames):
+            stable_recover = recovering_frames >= 2 and back_to_ready and stride <= return_thr
+            if stable_recover and reached_frame is not None and i - last_completion_frame >= min_gap_frames:
                 completed += 1
                 last_completion_frame = i
-                state = "IDLE"
+                state = "COMPLETED_LOCK"
                 lunge_start_frame = None
                 hold_frames = 0
-                arm_extended = False
+                recovering_frames = 0
                 logger.debug("Lunge completed at frame %s -> completed=%s", i, completed)
-            elif stride >= hold_thr and speed >= 0 and leg_out and arm_out:
-                state = "LUNGE_ACTIVE"
+            elif lunge_start_frame is not None and i - lunge_start_frame > int(fps * 2.2):
+                state = "ABORTED"
+        elif state == "COMPLETED_LOCK":
+            current = max(completed, 1)
+            if stride <= rearm_thr and abs(speed) <= np.percentile(np.abs(velocity), 60):
+                state = "READY"
+                reached_frame = None
+        elif state == "ABORTED":
+            current = max(completed + 1, 1)
+            if stride <= rearm_thr and abs(speed) <= np.percentile(np.abs(velocity), 60):
+                state = "READY"
+                lunge_start_frame = None
+                reached_frame = None
 
         if previous_state != state:
             logger.debug("Lunge state transition at frame %s: %s -> %s", i, previous_state, state)
