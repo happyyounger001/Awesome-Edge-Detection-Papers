@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import time
 from concurrent.futures import Future, ThreadPoolExecutor
 from pathlib import Path
 
@@ -72,6 +73,8 @@ class FencingMainWindow(QMainWindow):
         self.video_load_progress = 0
         self.is_playing = False
         self.current_time = 0.0
+        self.play_start_monotonic = 0.0
+        self.play_start_frame = 0
         self.duration = 0.0
         self.playback_rate = 1.0
         self.rotation_fix_deg = 0.0
@@ -315,6 +318,8 @@ class FencingMainWindow(QMainWindow):
             self._show_frame(0)
         self.is_playing = True
         self.player_state = "PLAYING"
+        self.play_start_monotonic = time.monotonic()
+        self.play_start_frame = self.current_frame
         self.play_toggle_button.setText("暂停")
         self._restart_timer()
         logger.info("Playback started at frame=%s rate=%s", self.current_frame, self.playback_rate)
@@ -362,7 +367,12 @@ class FencingMainWindow(QMainWindow):
             self.toggle_play()
 
     def _next_frame(self) -> None:
-        next_frame = self.current_frame + max(1, int(round(self.playback_rate)))
+        if self.capture is None:
+            return
+        fps = self.capture.get(cv2.CAP_PROP_FPS) or 30.0
+        elapsed = max(0.0, time.monotonic() - self.play_start_monotonic)
+        expected = self.play_start_frame + int(elapsed * fps * self.playback_rate)
+        next_frame = max(self.current_frame + 1, expected)
         if next_frame > self.progress_slider.maximum():
             self.pause()
             self.player_state = "ENDED"
