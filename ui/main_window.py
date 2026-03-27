@@ -9,6 +9,7 @@ import cv2
 from PySide6.QtCore import QCoreApplication, QTimer, Qt
 from PySide6.QtWidgets import (
     QComboBox,
+    QDialog,
     QFileDialog,
     QGridLayout,
     QGroupBox,
@@ -144,26 +145,41 @@ class FencingMainWindow(QMainWindow):
 
         control_group = QGroupBox("5️⃣ 控制与报告区")
         control_layout = QVBoxLayout(control_group)
+        operation_group = QGroupBox("训练控制")
+        operation_layout = QGridLayout(operation_group)
         self.analyze_button = QPushButton("开始分析")
         self.analyze_button.clicked.connect(self.run_analysis)
-        go_button = QPushButton("手动标记 go")
+        go_button = QPushButton("手动标记")
         go_button.clicked.connect(self.mark_go)
-        self.report_button = QPushButton("查看分析报告")
-        self.report_button.clicked.connect(self.open_report)
-        self.learning_button = QPushButton("打开学习系统")
-        self.learning_button.clicked.connect(self.open_learning_system)
         self.settings_button = QPushButton("参数设置")
         self.settings_button.clicked.connect(self.open_settings_dialog)
+        operation_layout.addWidget(self.analyze_button, 0, 0)
+        operation_layout.addWidget(go_button, 0, 1)
+        operation_layout.addWidget(self.settings_button, 1, 0, 1, 2)
+
+        report_group = QGroupBox("报告与标准")
+        report_layout = QGridLayout(report_group)
+        self.report_button = QPushButton("查看报告")
+        self.report_button.clicked.connect(self.open_report)
+        self.learning_button = QPushButton("学习系统")
+        self.learning_button.clicked.connect(self.open_learning_system)
+        self.standard_button = QPushButton("当前标准")
+        self.standard_button.clicked.connect(self.open_standard_dialog)
+        report_layout.addWidget(self.report_button, 0, 0)
+        report_layout.addWidget(self.learning_button, 0, 1)
+        report_layout.addWidget(self.standard_button, 1, 0, 1, 2)
+
         self.status_label = QLabel("状态：等待导入视频")
-        for widget in [self.analyze_button, go_button, self.report_button, self.learning_button, self.settings_button, self.status_label]:
+        control_layout.addWidget(operation_group)
+        control_layout.addWidget(report_group)
+        for widget in [self.status_label]:
             control_layout.addWidget(widget)
         control_layout.addStretch(1)
 
         layout.addWidget(input_group, 0, 0, 1, 2)
         layout.addWidget(playback_group, 1, 0, 4, 2)
         layout.addWidget(realtime_group, 1, 2)
-        layout.addWidget(algorithm_group, 2, 2)
-        layout.addWidget(control_group, 3, 2, 2, 1)
+        layout.addWidget(control_group, 2, 2, 3, 1)
         self.setCentralWidget(root)
         self._update_realtime_placeholder()
         self._update_algorithm_panel(None)
@@ -173,11 +189,22 @@ class FencingMainWindow(QMainWindow):
             """
             QGroupBox { font-weight: 600; border: 1px solid #d0d7de; border-radius: 8px; margin-top: 8px; }
             QGroupBox::title { subcontrol-origin: margin; left: 12px; padding: 0 4px; color: #1f4f82; }
-            QPushButton { background: #2f6fed; color: white; border-radius: 6px; padding: 3px 8px; min-height: 24px; font-size: 12px; }
+            QPushButton { background: #2f6fed; color: white; border-radius: 6px; padding: 4px 8px; min-height: 30px; min-width: 92px; font-size: 12px; }
             QPushButton:hover { background: #2458bc; }
             QTextEdit { border: 1px solid #d0d7de; border-radius: 8px; background: #ffffff; }
             """
         )
+
+    def open_standard_dialog(self) -> None:
+        dialog = QDialog(self)
+        dialog.setWindowTitle("当前判断标准和算法")
+        dialog.resize(520, 420)
+        layout = QVBoxLayout(dialog)
+        text = QTextEdit()
+        text.setReadOnly(True)
+        text.setText(self.algorithm_text.toPlainText())
+        layout.addWidget(text)
+        dialog.exec()
 
     def _build_phase_label_map(self) -> dict[str, str]:
         labels = {
