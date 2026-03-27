@@ -480,18 +480,19 @@ class FencingMainWindow(QMainWindow):
                 f"</tr>"
             )
 
-        stability_ok = "👍" in assessment.stability or "稳定" in assessment.stability
-        thigh_ok = "达标" in assessment.thigh_raise or "👍" in assessment.thigh_raise
-        order_ok = "先手后脚" in assessment.hand_foot_order
+        stability_ok = "👍" in assessment.stability or "稳定" in assessment.stability or "达标" in assessment.stability
+        thigh_ok = assessment.thigh_raise == "否" or "达标" in assessment.thigh_raise
+        order_ok = assessment.hand_foot_order == "先手后脚"
         head_ok = "正常" in assessment.head_tilt
+        yes_no = lambda ok: "达标" if ok else "未达标"
 
         metrics_table = (
             "<table style='width:100%;border-collapse:collapse;font-size:13px;'>"
             "<tr><th style='text-align:left;padding:6px 8px;'>项目</th><th style='text-align:left;padding:6px 8px;'>目标值/区间</th><th style='text-align:left;padding:6px 8px;'>当前值</th></tr>"
-            + metric_row("抬大腿", f"≥ {self.config.thigh_raise_angle_threshold:.1f}°", assessment.thigh_raise, thigh_ok)
-            + metric_row("稳定性", f"≤ {self.config.stability_seconds_threshold:.2f}s晃动阈值", assessment.stability, stability_ok)
-            + metric_row("手脚顺序", "先手后脚", assessment.hand_foot_order, order_ok)
-            + metric_row("头部姿态", f"偏斜 ≤ {self.config.head_tilt_angle_threshold:.1f}°", assessment.head_tilt, head_ok)
+            + metric_row("抬大腿", f"≥ {self.config.thigh_raise_angle_threshold:.1f}°", yes_no(thigh_ok), thigh_ok)
+            + metric_row("稳定性", f"≤ {self.config.stability_seconds_threshold:.2f}s晃动阈值", yes_no(stability_ok), stability_ok)
+            + metric_row("手脚顺序", "先手后脚", yes_no(order_ok), order_ok)
+            + metric_row("头部姿态", f"偏斜 ≤ {self.config.head_tilt_angle_threshold:.1f}°", yes_no(head_ok), head_ok)
             + "</table>"
         )
         self.realtime_text.setHtml(
