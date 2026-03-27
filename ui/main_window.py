@@ -480,8 +480,8 @@ class FencingMainWindow(QMainWindow):
                 f"</tr>"
             )
 
-        stability_ok = "👍" in assessment.stability or "稳定" in assessment.stability or "达标" in assessment.stability
-        thigh_ok = assessment.thigh_raise == "否" or "达标" in assessment.thigh_raise
+        stability_ok = assessment.stability == "达标"
+        thigh_ok = assessment.thigh_raise == "否"
         order_ok = assessment.hand_foot_order == "先手后脚"
         head_ok = "正常" in assessment.head_tilt
         yes_no = lambda ok: "达标" if ok else "未达标"
