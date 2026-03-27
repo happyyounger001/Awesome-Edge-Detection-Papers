@@ -469,6 +469,31 @@ class FencingMainWindow(QMainWindow):
         status_color = "#15803d" if is_good else "#b91c1c"
         issue_bg = "#dcfce7" if is_good else "#fee2e2"
         phase_cn = self._phase_label(assessment.lunge_state)
+        def metric_row(name: str, target: str, current: str, ok: bool) -> str:
+            color = "#15803d" if ok else "#b91c1c"
+            bg = "#dcfce7" if ok else "#fee2e2"
+            return (
+                f"<tr>"
+                f"<td style='padding:6px 8px;border-bottom:1px solid #eee;'>{name}</td>"
+                f"<td style='padding:6px 8px;border-bottom:1px solid #eee;color:#334155;'>{target}</td>"
+                f"<td style='padding:6px 8px;border-bottom:1px solid #eee;background:{bg};color:{color};font-weight:700;'>{current}</td>"
+                f"</tr>"
+            )
+
+        stability_ok = "👍" in assessment.stability or "稳定" in assessment.stability
+        thigh_ok = "达标" in assessment.thigh_raise or "👍" in assessment.thigh_raise
+        order_ok = "先手后脚" in assessment.hand_foot_order
+        head_ok = "正常" in assessment.head_tilt
+
+        metrics_table = (
+            "<table style='width:100%;border-collapse:collapse;font-size:13px;'>"
+            "<tr><th style='text-align:left;padding:6px 8px;'>项目</th><th style='text-align:left;padding:6px 8px;'>目标值/区间</th><th style='text-align:left;padding:6px 8px;'>当前值</th></tr>"
+            + metric_row("抬大腿", f"≥ {self.config.thigh_raise_angle_threshold:.1f}°", assessment.thigh_raise, thigh_ok)
+            + metric_row("稳定性", f"≤ {self.config.stability_seconds_threshold:.2f}s晃动阈值", assessment.stability, stability_ok)
+            + metric_row("手脚顺序", "先手后脚", assessment.hand_foot_order, order_ok)
+            + metric_row("头部姿态", f"偏斜 ≤ {self.config.head_tilt_angle_threshold:.1f}°", assessment.head_tilt, head_ok)
+            + "</table>"
+        )
         self.realtime_text.setHtml(
             f"<h3>当前弓步：第 {assessment.current_lunge_index} 个（已完成 {assessment.completed_lunge_count} 个）</h3>"
             f"<p><b>当前阶段：</b>{phase_cn}</p>"
@@ -476,8 +501,8 @@ class FencingMainWindow(QMainWindow):
             f"<p style='background:{issue_bg};padding:8px;border-radius:6px;'><b>本次最需要改进：{assessment.top_issue}</b></p>"
             f"<p><b>训练建议：</b>{assessment.coaching_advice}</p>"
             f"<hr>"
-            f"<p>抬大腿：{assessment.thigh_raise} ｜ 稳定性：{assessment.stability} ｜ 手脚顺序：{assessment.hand_foot_order} ｜ 头部：{assessment.head_tilt}</p>"
-            f"<p><b>稳定性细节：</b>{assessment.stability_details}</p>"
+            f"{metrics_table}"
+            f"<p style='margin-top:8px;'><b>稳定性细节：</b>{assessment.stability_details}</p>"
         )
 
     def _detect_rotation_fix(self, capture: cv2.VideoCapture) -> float:
