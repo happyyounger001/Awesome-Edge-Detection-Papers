@@ -101,7 +101,7 @@ def _compute_lunge_state_machine(
     state = "READY"
     completed = 0
     current = 1
-    started = False
+    cycle_active = False
     reached = False
     last_completion_frame = -min_gap_frames
 
@@ -109,24 +109,24 @@ def _compute_lunge_state_machine(
         previous_state = state
         current = completed + 1
 
-        if not started and stride >= start_thr and speed > 0 and i - last_completion_frame >= min_gap_frames:
-            started = True
+        if (not cycle_active) and stride >= start_thr and speed > 0 and i - last_completion_frame >= min_gap_frames:
+            cycle_active = True
             reached = False
             state = "STARTED"
-        elif started and not reached and stride >= reach_thr:
+        elif cycle_active and not reached and stride >= reach_thr:
             reached = True
             state = "HOLD"
-        elif started and reached and stride <= return_thr and speed <= 0:
+        elif cycle_active and reached and stride <= return_thr and speed <= 0:
             completed += 1
             last_completion_frame = i
-            started = False
+            cycle_active = False
             reached = False
             state = "READY"
             logger.debug("Lunge completed at frame %s -> completed=%s", i, completed)
-        elif started and not reached:
-            state = "EXTENDING"
-        elif started and reached:
-            state = "RETURN"
+        elif cycle_active and not reached:
+            state = "EXTENDING" if speed >= 0 else "STARTED"
+        elif cycle_active and reached:
+            state = "RETURN" if speed <= 0 else "HOLD"
         else:
             state = "READY"
 
