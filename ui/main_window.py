@@ -82,7 +82,7 @@ class FencingMainWindow(QMainWindow):
         self.player_state = "IDLE"
 
         self.setWindowTitle("Fencing Lunge AI Trainer")
-        self.resize(1640, 960)
+        self.resize(1360, 820)
         self._build_ui()
         self._apply_common_styles()
 
@@ -146,32 +146,43 @@ class FencingMainWindow(QMainWindow):
         control_group = QGroupBox("5️⃣ 控制与报告区")
         control_layout = QVBoxLayout(control_group)
         operation_group = QGroupBox("训练控制")
-        operation_layout = QGridLayout(operation_group)
+        operation_layout = QVBoxLayout(operation_group)
         self.analyze_button = QPushButton("开始分析")
         self.analyze_button.clicked.connect(self.run_analysis)
         go_button = QPushButton("手动标记")
         go_button.clicked.connect(self.mark_go)
         self.settings_button = QPushButton("参数设置")
         self.settings_button.clicked.connect(self.open_settings_dialog)
-        operation_layout.addWidget(self.analyze_button, 0, 0)
-        operation_layout.addWidget(go_button, 0, 1)
-        operation_layout.addWidget(self.settings_button, 1, 0, 1, 2)
+        operation_layout.addWidget(self.analyze_button)
+        operation_layout.addWidget(go_button)
+        operation_layout.addWidget(self.settings_button)
 
         report_group = QGroupBox("报告与标准")
-        report_layout = QGridLayout(report_group)
+        report_layout = QVBoxLayout(report_group)
         self.report_button = QPushButton("查看报告")
         self.report_button.clicked.connect(self.open_report)
         self.learning_button = QPushButton("学习系统")
         self.learning_button.clicked.connect(self.open_learning_system)
         self.standard_button = QPushButton("当前标准")
         self.standard_button.clicked.connect(self.open_standard_dialog)
-        report_layout.addWidget(self.report_button, 0, 0)
-        report_layout.addWidget(self.learning_button, 0, 1)
-        report_layout.addWidget(self.standard_button, 1, 0, 1, 2)
+        report_layout.addWidget(self.report_button)
+        report_layout.addWidget(self.learning_button)
+        report_layout.addWidget(self.standard_button)
+        for btn in [
+            self.analyze_button,
+            go_button,
+            self.settings_button,
+            self.report_button,
+            self.learning_button,
+            self.standard_button,
+        ]:
+            btn.setFixedSize(112, 34)
 
         self.status_label = QLabel("状态：等待导入视频")
-        control_layout.addWidget(operation_group)
-        control_layout.addWidget(report_group)
+        button_matrix = QHBoxLayout()
+        button_matrix.addWidget(operation_group)
+        button_matrix.addWidget(report_group)
+        control_layout.addLayout(button_matrix)
         for widget in [self.status_label]:
             control_layout.addWidget(widget)
         control_layout.addStretch(1)
@@ -180,6 +191,9 @@ class FencingMainWindow(QMainWindow):
         layout.addWidget(playback_group, 1, 0, 4, 2)
         layout.addWidget(realtime_group, 1, 2)
         layout.addWidget(control_group, 2, 2, 3, 1)
+        layout.setColumnStretch(0, 3)
+        layout.setColumnStretch(1, 3)
+        layout.setColumnStretch(2, 2)
         self.setCentralWidget(root)
         self._update_realtime_placeholder()
         self._update_algorithm_panel(None)
