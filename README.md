@@ -231,3 +231,19 @@ python -m compileall ui pose analysis rules report config main.py tests
 - 当前为 2D 姿态估计，不追踪剑尖。
 - 光照差、遮挡、摄像机移动会影响结果。
 - 当前 `go` 至少支持手动标记，自动音频检测未作为本版 MVP 强制项。
+
+## 网页版快速启动（实验版）
+
+新增了一个最小可用网页入口：`web_fencing_analyzer.py`。
+
+```bash
+python web_fencing_analyzer.py
+```
+
+浏览器访问：`http://127.0.0.1:8000`
+
+功能：
+- 上传训练视频
+- 调用现有分析引擎完成分析
+- 返回弓步完成数
+- 提供报告 HTML 与叠加视频链接
