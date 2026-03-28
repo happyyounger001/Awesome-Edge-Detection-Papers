@@ -1,0 +1,11 @@
+PySide6
+opencv-python
+mediapipe
+numpy
+pandas
+matplotlib
+pillow
+pyyaml
+pytest
+pyinstaller
+flask

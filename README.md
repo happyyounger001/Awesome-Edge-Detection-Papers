@@ -1,122 +1,249 @@
-# Awesome-Edge-Detection-Papers
+# Fencing Lunge AI Trainer
 
-[![Awesome](https://cdn.rawgit.com/sindresorhus/awesome/d7305f38d29fed78fa85652e3a63e154dd8e8829/media/badge.svg)](https://github.com/sindresorhus/awesome)
+这是一个面向 Windows 的 Python GUI 原型，用于分析儿童花剑弓步训练视频。
 
-A collection of edge detection papers and corresponding source code/demo program (*a.k.a.* contour detection or boundary detection).
+## 功能概览
 
-> Feel free to create a PR or an issue. (Pull Request is preferred)
+本项目提供一个桌面界面，支持：
 
-![examples](https://github.com/MarkMoHR/Awesome-Edge-Detection-Papers/blob/master/edge-detection.png)
+- 导入训练视频。
+- 播放视频并叠加 MediaPipe Pose 人体骨架。
+- 手动标记 `go` 时刻。
+- 自动分析：
+  - 手脚顺序
+  - 弓步稳定性（含手 / 肘 / 肩晃动）
+  - 是否抬大腿
+  - 是否歪头
+  - 是否踢小腿
+- 输出敏捷性时间：
+  - `go → 出手`
+  - `go → 弓步完成`
+  - `出手 → 弓步完成`
+- 生成中文图文报告窗口。
+- 导出叠加视频、关键帧截图、CSV 指标和图表。
+- 支持视频加载 / 分析 / 报告加载的圆形百分比进度弹窗。
+- 支持 0.5x / 1.0x / 1.5x / 2.0x 播放倍速与重播。
 
+## 技术栈
 
-**Outline**
+- Python 3.10+
+- GUI: PySide6
+- 视频处理: OpenCV
+- 姿态识别: MediaPipe Pose
+- 数据处理: NumPy / Pandas
+- 图表: Matplotlib
+- 中文字幕绘制: Pillow
+- 配置: YAML
 
-- [Edge detection related dataset](#0-edge-detection-related-dataset)
-- [Deep-learning based approaches](#1-deep-learning-based-approaches)
-  - [General edge detection](#11-general-edge-detection)
-  - [Object contour detection](#12-object-contour-detection)
-  - [Semantic edge detection (Category-Aware)](#13-semantic-edge-detection-category-aware)
-  - [Occlusion boundary detection](#14-occlusion-boundary-detection)
-  - [Edge detection from multi-frames](#15-edge-detection-from-multi-frames)
-- [Traditional approaches](#2-traditional-approaches)
-- [[Misc] Useful Links](#3-useful-links)
+## 目录结构
 
+```text
+project/
+├── ui/
+├── pose/
+├── analysis/
+├── rules/
+├── report/
+├── config/
+├── main.py
+```
 
-## 0. Edge detection related dataset
+## Windows 安装
 
-| Short name | Source Paper | Source | Introduction |
-| --- | --- | --- | --- |
-| [BSDS500](https://www2.eecs.berkeley.edu/Research/Projects/CS/vision/grouping/resources.html) | [Contour Detection and Hierarchical Image Segmentation](https://www2.eecs.berkeley.edu/Research/Projects/CS/vision/grouping/papers/amfm_pami2010.pdf) | TPAMI 2011 | Classical edge detaction dataset. |
-| [NYUDv2](https://github.com/s-gupta/rgbd#notes) | [Perceptual Organization and Recognition of Indoor Scenes from RGB-D Images](https://www.cv-foundation.org/openaccess/content_cvpr_2013/papers/Gupta_Perceptual_Organization_and_2013_CVPR_paper.pdf) | CVPR 2013 | Edges come from the boundary of annotated segmentation mask. |
-| [Multi-cue](https://serre-lab.clps.brown.edu/resource/multicue/) | [A systematic comparison between visual cues for boundary detection](https://pubmed.ncbi.nlm.nih.gov/26748113/) | Vision research 2016 | With boundary annotations. |
-| [Wireframe](https://github.com/cherubicxn/hawp#data-preparation) | [Holistically-Attracted Wireframe Parsing](https://arxiv.org/pdf/2003.01663) | CVPR 2020 | Edges come from the annotated wireframe. |
+```powershell
+python -m venv .venv
+.\.venv\Scripts\activate
+pip install -r requirements.txt
+```
 
----
+## 运行方式
 
-## 1. Deep-learning based approaches
+```powershell
+python main.py
+```
 
-### 1.1 General edge detection
+## 使用流程
 
-| Short name | Paper | Source | Code/Project Link  |
-| --- | --- | --- | --- |
-| pidinet | [Pixel Difference Networks for Efficient Edge Detection](https://arxiv.org/abs/2108.07009) | ICCV 2021 | [[Code]](https://github.com/zhuoinoulu/pidinet) |
-| DSCD | [Deep Structural Contour Detection](https://dl.acm.org/doi/abs/10.1145/3394171.3413750) | ACM MM 2020 |  |
-| DexiNed | [Dense Extreme Inception Network: Towards a Robust CNN Model for Edge Detection](https://arxiv.org/pdf/1909.01955.pdf) | WACV 2020 | [[Code]](https://github.com/xavysp/DexiNed)  |
-| BDCN | [Bi-Directional Cascade Network for Perceptual Edge Detection](https://arxiv.org/pdf/1902.10903.pdf) | CVPR 2019 | [[code]](https://github.com/pkuCactus/BDCN) |
-| RCN | [Object Contour and Edge Detection with RefineContourNet](https://link.springer.com/chapter/10.1007%2F978-3-030-29888-3_20) | CAIP 2019 | [[code]](https://github.com/AndreKelm/RefineContourNet) |
-| LPCB | [Learning to Predict Crisp Boundaries](http://openaccess.thecvf.com/content_ECCV_2018/papers/Ruoxi_Deng_Learning_to_Predict_ECCV_2018_paper.pdf) | ECCV 2018 |  |
-| AMH-Net | [Learning Deep Structured Multi-Scale Features using Attention-Gated CRFs for Contour Prediction](https://papers.nips.cc/paper/6985-learning-deep-structured-multi-scale-features-using-attention-gated-crfs-for-contour-prediction.pdf) | NIPS 2017 | [[code]](https://github.com/danxuhk/AttentionGatedMulti-ScaleFeatureLearning) |
-| RCF | [Richer Convolutional Features for Edge Detection](http://openaccess.thecvf.com/content_cvpr_2017/papers/Liu_Richer_Convolutional_Features_CVPR_2017_paper.pdf) | CVPR 2017 | [[code-caffe]](https://github.com/yun-liu/rcf) [[code-pytorch]](https://github.com/meteorshowers/RCF-pytorch) [[project]](https://mmcheng.net/zh/rcfEdge/) |
-| CED | [Deep Crisp Boundaries](http://openaccess.thecvf.com/content_cvpr_2017/papers/Wang_Deep_Crisp_Boundaries_CVPR_2017_paper.pdf) | CVPR 2017 | [[code]](https://github.com/Wangyupei/CED) |
-| COB | [Convolutional Oriented Boundaries](https://arxiv.org/pdf/1608.02755.pdf) | ECCV 2016 | [[code]](https://github.com/kmaninis/COB) [[project]](http://www.vision.ee.ethz.ch/~cvlsegmentation/cob/index.html) |
-| RDS | [Learning Relaxed Deep Supervision for Better Edge Detection](http://openaccess.thecvf.com/content_cvpr_2016/papers/Liu_Learning_Relaxed_Deep_CVPR_2016_paper.pdf) | CVPR 2016 |  |
-| HFL | [High-for-Low and Low-for-High: Efficient Boundary Detection from Deep Object Features and its Applications to High-Level Vision](http://openaccess.thecvf.com/content_iccv_2015/papers/Bertasius_High-for-Low_and_Low-for-High_ICCV_2015_paper.pdf) | ICCV 2015 |  |
-| HED | [Holistically-Nested Edge Detection](http://openaccess.thecvf.com/content_iccv_2015/papers/Xie_Holistically-Nested_Edge_Detection_ICCV_2015_paper.pdf) | ICCV 2015 | [[code]](https://github.com/s9xie/hed) |
-| DeepEdge | [DeepEdge: A Multi-Scale Bifurcated Deep Network for Top-Down Contour Detection](http://openaccess.thecvf.com/content_cvpr_2015/papers/Bertasius_DeepEdge_A_Multi-Scale_2015_CVPR_paper.pdf) | CVPR 2015 |  |
-| DeepContour | [DeepContour: A Deep Convolutional Feature Learned by Positive-sharing Loss for Contour Detection](http://openaccess.thecvf.com/content_cvpr_2015/papers/Shen_DeepContour_A_Deep_2015_CVPR_paper.pdf) | CVPR 2015 | [[code]](https://github.com/shenwei1231/DeepContour) |
-
-### 1.2 Object contour detection
-
-| Short name | Paper | Source | Code/Project Link  |
-| --- | --- | --- | --- |
-| CEDN | [Object Contour Detection with a Fully Convolutional Encoder-Decoder Network](http://openaccess.thecvf.com/content_cvpr_2016/papers/Yang_Object_Contour_Detection_CVPR_2016_paper.pdf) | CVPR 2016 | [[code-caffe]](https://github.com/jimeiyang/objectContourDetector) [[code-TF]](https://github.com/Raj-08/tensorflow-object-contour-detection) |
-|  | [Weakly Supervised Object Boundaries](http://openaccess.thecvf.com/content_cvpr_2016/papers/Khoreva_Weakly_Supervised_Object_CVPR_2016_paper.pdf) | CVPR 2016 |  |
-
-
-### 1.3 Semantic edge detection (Category-Aware)
-
-| Short name | Paper | Source | Code/Project Link  |
-| --- | --- | --- | --- |
-| RINDNet | [RINDNet: Edge Detection for Discontinuity in Reflectance, Illumination, Normal and Depth](https://arxiv.org/abs/2108.00616) | ICCV 2021 | [[code]](https://github.com/MengyangPu/RINDNet) |
-| RPCNet | [Joint Semantic Segmentation and Boundary Detection using Iterative Pyramid Contexts](http://openaccess.thecvf.com/content_CVPR_2020/papers/Zhen_Joint_Semantic_Segmentation_and_Boundary_Detection_Using_Iterative_Pyramid_Contexts_CVPR_2020_paper.pdf) | CVPR 2020 | [[code]](https://github.com/mingminzhen/RPCNet) |
-| DFF | [Dynamic Feature Fusion for Semantic Edge Detection](https://arxiv.org/pdf/1902.09104.pdf) | IJCAI 2019 | [[code]](https://github.com/Lavender105/DFF) |
-| STEAL | [Devil is in the Edges: Learning Semantic Boundaries from Noisy Annotations](https://arxiv.org/pdf/1904.07934.pdf) | CVPR 2019 | [[code]](https://github.com/nv-tlabs/STEAL) [[project]](https://nv-tlabs.github.io/STEAL/) |
-| SEAL | [Simultaneous Edge Alignment and Learning](http://openaccess.thecvf.com/content_ECCV_2018/papers/Zhiding_Yu_SEAL_A_Framework_ECCV_2018_paper.pdf) | ECCV 2018 | [[code]](https://github.com/Chrisding/seal) |
-| CASENet | [CASENet: Deep Category-Aware Semantic Edge Detection](http://openaccess.thecvf.com/content_cvpr_2017/papers/Yu_CASENet_Deep_Category-Aware_CVPR_2017_paper.pdf) | CVPR 2017 | [[code]](http://www.merl.com/research/license#CASENet) |
-| `dataset` | [Semantic Contours from Inverse Detectors](https://www.robots.ox.ac.uk/~vgg/rg/papers/BharathICCV2011.pdf) | ICCV 2011 | [[code]](https://github.com/bharath272/semantic_contours) |
+1. 点击“导入视频”。
+2. 在主界面播放/暂停视频并拖动进度条。
+3. 在需要时点击“手动标记 go”。
+4. 点击“开始分析”。
+5. 使用倍速按钮和进度条进行人工复核。
+6. 如需更新标准，点击“打开 Learning System”，在窗口中生成/加载质量标准并一键导入。
+7. 点击“查看分析报告”，打开中文独立报告窗口。
 
 
-### 1.4 Occlusion boundary detection
+## 能生成 EXE 吗？
 
-| Short name | Paper | Source | Code/Project Link  |
-| --- | --- | --- | --- |
-| DOOBNet | [DOOBNet: Deep Object Occlusion Boundary Detection from an Image](https://arxiv.org/abs/1806.03772) | ACCV 2018 | [[code]](https://github.com/GuoxiaWang/DOOBNet) |
-| DOC & `dataset` | [DOC: Deep OCclusion Estimation From a Single Image](https://arxiv.org/abs/1511.06457) | ECCV 2016 | [[code]](https://github.com/pengwangucla/DOC) |
-|  | [Occlusion Boundary Detection via Deep Exploration of Context](http://openaccess.thecvf.com/content_cvpr_2016/papers/Fu_Occlusion_Boundary_Detection_CVPR_2016_paper.pdf) | CVPR 2016 |  |
+可以。项目已经补充了 **PyInstaller 打包脚本** 和 `.spec` 文件，可在 Windows 上生成桌面版 EXE。
+
+### 方式 1：使用打包脚本（推荐）
+
+```powershell
+python build_exe.py
+```
+
+生成目录：
+
+```text
+dist/
+  FencingLungeAITrainer/
+    FencingLungeAITrainer.exe
+```
+
+如果你想生成单文件版本：
+
+```powershell
+python build_exe.py --onefile
+```
+
+### 方式 2：直接使用 spec 文件
+
+```powershell
+pyinstaller FencingLungeAITrainer.spec
+```
+
+### 打包说明
+
+- 打包时会自动把 `config.yaml` 一起带入 EXE 输出目录。
+- 脚本已经包含 `mediapipe`、`matplotlib`、`pandas` 的收集参数，减少 Windows 下缺模块问题。
+- 对于 MediaPipe + OpenCV + PySide6 组合，**优先推荐 one-folder 版本**，稳定性通常高于 one-file。
+- 首次打包前请先确认：
+  - `pip install -r requirements.txt`
+  - `python main.py` 可以正常启动
+
+## 输出目录
+
+分析完成后会在 `outputs/<视频名>/` 生成：
+
+```text
+overlay.mp4
+report_zh.html
+metrics.csv
+figures/
+  time_compare.png
+  stability_curve.png
+frames/
+  出手瞬间.png
+  弓步完成瞬间.png
+  预警触发瞬间.png
+```
 
 
-### 1.5 Edge detection from multi-frames
+## 两层系统架构
 
-| Short name | Paper | Source | Code/Project Link  |
-| --- | --- | --- | --- |
-| Boundary Flow | [Boundary Flow: A Siamese Network that Predicts Boundary Motion without Training on Motion](http://openaccess.thecvf.com/content_cvpr_2018/papers/Lei_Boundary_Flow_A_CVPR_2018_paper.pdf) | CVPR 2018 |  |
-| LEGO | [LEGO: Learning Edge with Geometry all at Once by Watching Videos](http://openaccess.thecvf.com/content_cvpr_2018/papers/Yang_LEGO_Learning_Edge_CVPR_2018_paper.pdf) | CVPR 2018 | [[code]](https://github.com/zhenheny/LEGO) |
-|  | [Unsupervised Learning of Edges](http://openaccess.thecvf.com/content_cvpr_2016/papers/Li_Unsupervised_Learning_of_CVPR_2016_paper.pdf) | CVPR 2016 | [[code]](https://github.com/happyharrycn/unsupervised_edges) |
+项目现在拆分为两层：
 
+1. **Learning System（底层学习系统）**
+   - 输入：`data/learning_samples/training_standard/` 和 `data/learning_samples/competition_effective/` 中的高质量样本视频。
+   - 输出：
+     - `outputs/learning_features/*.json`
+     - `standards/quality_standard_u6_foil_v1.json`
+2. **Training Assistant System（训练辅助系统）**
+   - 输入：普通训练视频 + 质量标准文件。
+   - 输出：实时分析、字幕预警、报告、质量评分、偏差解释。
+   - GUI 中可通过“打开 Learning System”窗口查看学习到的衡量指标，并一键导入到当前训练辅助系统。
 
----
+## 学习系统
 
+学习系统会复用当前 MediaPipe Pose 提取能力，先将视频转换为归一化特征，再统计高质量样本分布，生成质量标准 JSON。当前版本优先实现：
 
-## 2. Traditional approaches
+- 特征提取
+- 区间统计（mean / median / std / p10 / p25 / p75 / p90）
+- 阶段规则输出
+- 默认评分权重输出
 
-| Short name | Paper | Source | Code/Project Link  |
-| --- | --- | --- | --- |
-| SemiContour | [SemiContour: A Semi-supervised Learning Approach for Contour Detection](http://openaccess.thecvf.com/content_cvpr_2016/papers/Zhang_SemiContour_A_Semi-Supervised_CVPR_2016_paper.pdf) | CVPR 2016 |  |
-| OEF | [Oriented Edge Forests for Boundary Detection](http://openaccess.thecvf.com/content_cvpr_2015/papers/Hallman_Oriented_Edge_Forests_2015_CVPR_paper.pdf) |  CVPR 2015 | [[code]](https://github.com/samhallman/oef) |
-| SE | [Fast edge detection using structured forests](https://arxiv.org/pdf/1406.5549.pdf) | TPAMI 2015 | [[code]](https://github.com/pdollar/edges) |
-| Edge Boxes | [Edge Boxes: Locating Object Proposals from Edges](https://www.microsoft.com/en-us/research/wp-content/uploads/2014/09/ZitnickDollarECCV14edgeBoxes.pdf) | ECCV 2014 | [[code]](https://github.com/pdollar/edges) |
-| PMI | [Crisp Boundary Detection Using Pointwise Mutual Information](https://link.springer.com/chapter/10.1007/978-3-319-10578-9_52) | ECCV 2014 | [[code]](https://github.com/phillipi/crisp-boundaries) |
-| Sketch Tokens | [Sketch tokens: A learned mid-level representation for contour and object detection](http://openaccess.thecvf.com/content_cvpr_2013/papers/Lim_Sketch_Tokens_A_2013_CVPR_paper.pdf) | CVPR 2013 |  |
-| SCG | [Discriminatively Trained Sparse Code Gradients for Contour Detection](http://papers.nips.cc/paper/4787-discriminatively-trained-sparse-code-gradients-for-contour-detection.pdf) | NIPS 2012 |  |
-| gPb-owt-ucm | [Contour Detection and Hierarchical Image Segmentation](http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.374.3367&rep=rep1&type=pdf) | TPAMI 2011 | [[code]](http://www.eecs.berkeley.edu/Research/Projects/CS/vision/grouping/BSR/BSR_source.tgz) [[project]](https://www2.eecs.berkeley.edu/Research/Projects/CS/vision/grouping/resources.html) |
-| XDoG | [XDoG: advanced image stylization with eXtended Difference-of-Gaussians](http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.648.990&rep=rep1&type=pdf) | NPAR 2011 | [[code(python)]](https://github.com/heitorrapela/xdog) <br/> [[online demo]](https://xdog.alexpeattie.com/) <br/>Others: [code(C++)](https://github.com/Sunwinds/xdog-demo) [code(matlab)](https://github.com/CemalUnal/XDoG-Filter) [code(Web APP)](https://github.com/alexpeattie/xdog-sketch) |
-| FDoG | [Coherent Line Drawing](http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.108.559&rep=rep1&type=pdf) | NPAR 2007 | [[code]](https://github.com/SSARCandy/Coherent-Line-Drawing) [[project]](https://ssarcandy.tw/Coherent-Line-Drawing/) |
-| Canny | [A Computational Approach to Edge Detection](http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.420.3300&rep=rep1&type=pdf) | TPAMI 1986 | [[code]](https://rosettacode.org/wiki/Canny_edge_detector) [[code-py]](https://opencv-python-tutroals.readthedocs.io/en/latest/py_tutorials/py_imgproc/py_canny/py_canny.html) |
+### 学习系统运行示例
 
+```bash
+python learning_system.py   --input data/learning_samples   --output standards/quality_standard_u6_foil_v1.json
+```
 
----
+### 训练辅助系统运行示例
 
+```bash
+python training_assistant.py   --video input.mp4   --standard standards/quality_standard_u6_foil_v1.json
+```
 
-## 3. Useful Links
+### Learning System 界面
 
- - Code to plot edge PR curves: [MCG-NKU/plot-edge-pr-curves](https://github.com/MCG-NKU/plot-edge-pr-curves)
+Learning System 窗口支持：
+
+- 选择学习样本目录
+- 生成质量标准文件
+- 表格查看学习后的质量标准衡量指标（mean / median / p25 / p75 / p90）
+- 一键导入到当前 Training Assistant System
+
+### 默认质量标准文件
+
+仓库内提供默认标准文件：
+
+```text
+standards/quality_standard_u6_foil_v1.json
+```
+
+如果未找到该文件，训练辅助系统会给出明确的“质量标准文件不存在”报错。
+
+## 参数调节
+
+界面右侧新增“当前参数设置”面板，可直接查看并调整：
+
+- **弓步稳定性**：多少秒内保持不晃动才算达标。
+- **抬大腿角度阈值**：膝-髋连线与地面夹角达到多少度时触发“抬大腿”判定。
+- **头部偏斜阈值**：头部线条偏离水平超过多少度触发“歪头提醒”。
+- **膝关节点需低于髋关节点**：作为抬大腿判定的附加条件，可直接勾选启用。
+
+点击“应用参数”后，实时分析区、视频字幕预警、正式分析结果会使用同一套参数。
+
+## 规则说明
+
+- **手脚顺序**：当前产品逻辑保持为“先手后脚”判定为达标，异常字幕显示为“先脚后手预警”。
+- **弓步计数**：严格按状态机执行，只有 `IDLE -> LUNGE_OUT -> LUNGE_RETURN -> IDLE` 完整结束后，已完成弓步数才会 +1。
+- **弓步稳定性**：弓步峰值后在设定秒数内，手 / 肘 / 肩晃动都不超过阈值才算达标。
+- **抬大腿**：当“膝关节点低于髋关节点”且“膝-髋连线与地面夹角 >= 阈值”时触发预警。
+- **头部姿态**：左右眼连线偏离水平超过阈值时触发“歪头提醒”。
+- **踢小腿**：踝相对膝的前摆速度超过阈值判定为有踢小腿。
+
+所有阈值都可在 `config.yaml` 中修改。
+
+## 最低可运行版本能力
+
+- GUI 可打开视频。
+- 骨架叠加与中文字幕不乱码。
+- 支持手动 `go` 标记。
+- 计算三个关键时间。
+- 完成四类规则判断。
+- 实时分析区显示“当前第 X 个弓步 / 已完成弓步数 / 当前状态 / 是否得分 / 细项判定 / 状态机”。
+- 参数面板支持修改弓步稳定性、抬大腿阈值、头部偏斜阈值。
+- 视频加载 / 分析 / 报告加载都有圆形进度弹窗。
+- 生成中文报告窗口。
+
+## 测试
+
+```bash
+pytest -q
+python -m compileall ui pose analysis rules report config main.py tests
+```
+
+## 限制说明
+
+- 推荐固定侧面机位，确保全身入镜。
+- 当前为 2D 姿态估计，不追踪剑尖。
+- 光照差、遮挡、摄像机移动会影响结果。
+- 当前 `go` 至少支持手动标记，自动音频检测未作为本版 MVP 强制项。
+
+## 网页版快速启动（实验版）
+
+新增了一个最小可用网页入口：`web_fencing_analyzer.py`。
+
+```bash
+python web_fencing_analyzer.py
+```
+
+浏览器访问：`http://127.0.0.1:8000`
+
+功能：
+- 上传训练视频
+- 调用现有分析引擎完成分析
+- 返回弓步完成数
+- 提供报告 HTML 与叠加视频链接
