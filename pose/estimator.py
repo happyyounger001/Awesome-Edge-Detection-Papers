@@ -27,6 +27,10 @@ KEYPOINTS = {
     "right_knee": 26,
     "left_ankle": 27,
     "right_ankle": 28,
+    "left_heel": 29,
+    "right_heel": 30,
+    "left_foot_index": 31,
+    "right_foot_index": 32,
 }
 
 SKELETON = [
@@ -45,6 +49,12 @@ SKELETON = [
     ("right_hip", "right_knee"),
     ("left_knee", "left_ankle"),
     ("right_knee", "right_ankle"),
+    ("left_ankle", "left_heel"),
+    ("right_ankle", "right_heel"),
+    ("left_ankle", "left_foot_index"),
+    ("right_ankle", "right_foot_index"),
+    ("left_heel", "left_foot_index"),
+    ("right_heel", "right_foot_index"),
 ]
 
 
