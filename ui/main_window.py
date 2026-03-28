@@ -264,7 +264,7 @@ class FencingMainWindow(QMainWindow):
             "本次最需要改进：--\n"
             "训练建议：--\n"
             "细项判定：\n"
-            "抬大腿：--\n"
+            "不抬大腿：--\n"
             "稳定性：--\n"
             "手脚顺序：--\n"
             "头部姿态：--"
@@ -479,9 +479,15 @@ class FencingMainWindow(QMainWindow):
         self.video_panel_widget.update_layers(video_frame, pose_layer, status_lines)
 
     def _update_realtime_panel(self, assessment) -> None:
-        is_good = assessment.current_text == "很棒，得分！"
-        status_color = "#15803d" if is_good else "#b91c1c"
-        issue_bg = "#dcfce7" if is_good else "#fee2e2"
+        if assessment.current_text == "很棒，击中得分！":
+            status_color = "#15803d"
+            issue_bg = "#dcfce7"
+        elif assessment.current_text == "加油还能更好！":
+            status_color = "#6d28d9"
+            issue_bg = "#f3e8ff"
+        else:
+            status_color = "#b91c1c"
+            issue_bg = "#fee2e2"
         phase_cn = self._phase_label(assessment.lunge_state)
         def metric_row(name: str, target: str, current: str, ok: bool) -> str:
             color = "#15803d" if ok else "#b91c1c"
@@ -503,7 +509,7 @@ class FencingMainWindow(QMainWindow):
         metrics_table = (
             "<table style='width:100%;border-collapse:collapse;font-size:13px;'>"
             "<tr><th style='text-align:left;padding:6px 8px;'>项目</th><th style='text-align:left;padding:6px 8px;'>目标值/区间</th><th style='text-align:left;padding:6px 8px;'>当前值</th></tr>"
-            + metric_row("抬大腿", f"≥ {self.config.thigh_raise_angle_threshold:.1f}°", yes_no(thigh_ok), thigh_ok)
+            + metric_row("不抬大腿", f"≥ {self.config.thigh_raise_angle_threshold:.1f}°", yes_no(thigh_ok), thigh_ok)
             + metric_row("稳定性", f"≤ {self.config.stability_seconds_threshold:.2f}s晃动阈值", yes_no(stability_ok), stability_ok)
             + metric_row("手脚顺序", "先手后脚", yes_no(order_ok), order_ok)
             + metric_row("头部姿态", f"偏斜 ≤ {self.config.head_tilt_angle_threshold:.1f}°", yes_no(head_ok), head_ok)

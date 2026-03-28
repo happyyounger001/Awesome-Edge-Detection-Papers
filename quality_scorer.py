@@ -13,7 +13,7 @@ FEATURE_METADATA: dict[str, dict[str, str]] = {
     "shoulder_stability_std": {"label": "肩部不稳定", "advice": "肩部摆动过大，注意上肢固定", "direction": "low"},
     "head_tilt_max_deg": {"label": "头部倾斜", "advice": "头部倾斜，注意保持正直", "direction": "low"},
     "head_trunk_alignment_score": {"label": "头干不对齐", "advice": "保持头颈躯干一条线", "direction": "high"},
-    "hip_knee_line_ground_angle_max": {"label": "抬大腿", "advice": "注意不要抬大腿，保持髋膝角度稳定", "direction": "low"},
+    "hip_knee_line_ground_angle_max": {"label": "不抬大腿", "advice": "注意保持不抬大腿，维持髋膝角度稳定", "direction": "low"},
     "trunk_lean_max_deg": {"label": "躯干前倾过大", "advice": "上体前倾过大，注意核心稳定", "direction": "low"},
 }
 

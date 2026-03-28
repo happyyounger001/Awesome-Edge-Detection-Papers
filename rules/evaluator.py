@@ -57,7 +57,7 @@ def _describe(quality: LungeQuality) -> list[str]:
     return [
         f"手脚顺序：{quality.hand_foot_order} {quality.hand_foot_status}",
         f"弓步稳定：{quality.stability} {quality.stability_status}",
-        f"抬大腿：{quality.thigh_raise} {quality.thigh_raise_status}",
+        f"不抬大腿：{quality.thigh_raise} {quality.thigh_raise_status}",
         f"头部姿态：{quality.head_tilt} {quality.head_tilt_status}",
         f"踢小腿：{quality.calf_kick} {quality.calf_kick_status}",
     ]
@@ -370,15 +370,31 @@ def _build_frame_assessments(
         timestamp, raw_lunge_number, completed_count, lunge_state, thigh_flag, head_flag = values
         current_lunge_index = int(raw_lunge_number) if int(raw_lunge_number) > 0 else max(int(completed_count), 1)
         frame_order_ok = not (foot_frame is not None and hand_frame is not None and frame_index >= min(hand_frame, foot_frame) and not order_ok)
-        score_good = (not bool(thigh_flag)) and stability_ok and frame_order_ok and (not bool(head_flag))
-        current_text = "很棒，得分！" if score_good else "加油，还能更好！"
-        current_icon = "👍" if score_good else "🚨"
+        frame_score = 100
+        if bool(thigh_flag):
+            frame_score -= 25
+        if not stability_ok:
+            frame_score -= 20
+        if not frame_order_ok:
+            frame_score -= 20
+        if bool(head_flag):
+            frame_score -= 20
+        score_good = frame_score >= 90
+        if frame_score >= 90:
+            current_text = "很棒，击中得分！"
+            current_icon = "🟢"
+        elif frame_score >= 80:
+            current_text = "加油还能更好！"
+            current_icon = "🟣"
+        else:
+            current_text = "暂停练习，向教练求助！"
+            current_icon = "🔴"
         if score_good or overall_good:
             top_issue = "动作整体达标"
             coaching_advice = "继续保持当前节奏和稳定性"
         elif bool(thigh_flag):
-            top_issue = "抬大腿"
-            coaching_advice = "注意不要抬大腿，保持髋膝角度稳定"
+            top_issue = "不抬大腿未达标"
+            coaching_advice = "注意保持不抬大腿，维持髋膝角度稳定"
         elif not frame_order_ok:
             top_issue = "先脚后手"
             coaching_advice = "手启动慢，建议先手再脚"
