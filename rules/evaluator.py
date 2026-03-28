@@ -377,18 +377,19 @@ def _build_frame_assessments(
             frame_score -= 20
         if not frame_order_ok:
             frame_score -= 20
-        if bool(head_flag):
-            frame_score -= 20
         score_good = frame_score >= 90
         if frame_score >= 90:
             current_text = "很棒，击中得分！"
             current_icon = "🟢"
-        elif frame_score >= 80:
+        elif frame_score >= 79:
             current_text = "加油还能更好！"
             current_icon = "🟣"
-        else:
+        elif frame_score < 70:
             current_text = "暂停练习，向教练求助！"
             current_icon = "🔴"
+        else:
+            current_text = "加油还能更好！"
+            current_icon = "🟣"
         if score_good or overall_good:
             top_issue = "动作整体达标"
             coaching_advice = "继续保持当前节奏和稳定性"
